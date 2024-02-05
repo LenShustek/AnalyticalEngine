@@ -1,6 +1,8 @@
 A component-level simulator for the small Babbage Analytical Engine
+-------------------------------------------------------------------
 
-The engine is simulated at a resolution of basic "time units", 15 or 20 of which comprise a "cycle" of the engine. The activities during a cycle are controlled by the current "verticals" on the microprogram barrels, each of which can be thought of as microprogram instruction word.
+The engine is simulated at a resolution of basic "time units", 15 or 20 of which comprise a "cycle" of the engine. 
+The activities during a cycle are controlled by the current "verticals" on the microprogram barrels, each of which can be thought of as microprogram instruction word.
 
 The model is of an interconnected assembly of hierarchical "components" that have internal state. 
 
@@ -22,7 +24,9 @@ Barrel studs are defined, and given semantics that describe their effect on the 
    create_stud("ADD_A_TO_B",    lambda barrel: mesh(barrel, A, B))
    create_stud("SUB_F_FROM_E",  lambda barrel: mesh(barrel, F, E, subtract=True))
    
-The “microprogram” on the barrels is then specified by a series of function calls that resemble traditional assembly-language statements with optional labels. The output is a matrix that indicates where on the cylindrical barrel the studs need to be placed. Here is an example program fragment that does unsigned multiplication:
+The “microprogram” on the barrels is then specified by a series of function calls that resemble traditional assembly-language statements with optional labels.
+The output is a matrix that indicates where on the cylindrical barrel the studs need to be placed. 
+Here is an example program fragment that does unsigned multiplication:
 
    mulpgm = program("multiply program", studnames) #create and assemble the program
    mulpgm.vertical("outerloop",  SHR_C_TO_D, GIVE_C_TO_E)
