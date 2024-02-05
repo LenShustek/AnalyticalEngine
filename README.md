@@ -14,14 +14,14 @@ the end that highlights changes.
 
 Other directories will appear as various parts of the project are developed. 
 These are the first to be added:
-  simulations
-     instruction_simulator
-     timing_simulator
-     component_simulator
-  test_designs
-     digit_wheel
-     anticipating_carriage
-     mill
+- simulations
+  - instruction_simulator
+  - timing_simulator
+  - component_simulator
+- test_designs
+  - digit_wheel
+  - anticipating_carriage
+  - mill
      
 Wish us luck. 
 
