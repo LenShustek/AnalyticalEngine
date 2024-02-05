@@ -1,4 +1,4 @@
-#Building the World's First Computer
+# Building the World's First Computer
 
 This is a project to build the "first computer": a fully mechanical version of
 Charles Babbage's Analytical Engine. It is a major undertaking that will take years.
