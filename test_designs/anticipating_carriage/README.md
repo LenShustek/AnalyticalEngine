@@ -12,7 +12,7 @@ stack and some of the required parts. The video is an *animation*,
 not a *simulation*; it doesn't recognize interference or make motion
 inferences based on contact between parts.
 
-The animation shows a number (just a single units digit) being added from the stack on the right to the carriage on the left. The actual numerals on the digit wheels are missing, and the relative position of the carry warning tab to the moveable "wire" (actually a slug) that detects the 9 position is arbitrary.
+The animation shows a number (just a single units digit) being added from the stack on the right to the carriage in the center. The actual numerals on the digit wheels are missing, and the relative position of the carry warning tab to the moveable "wire" (actually a slug) that detects the 9 position is arbitrary.
 
 The animation demonstrates a particularly hard case:
 - the units digit on the bottom rotates from 9 to 0 and beyond, so it must cause a carry to the tens
