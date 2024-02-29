@@ -30,3 +30,14 @@ The timing isn't as good as as Babbage achieved:
 We need to do better.
 
 Not shown is the return to the home position, or how to deal with subtraction. There's plenty more to do.
+
+*** update on 29 Feb 2024
+
+I continue to develop the design for the anticipating carriage. See the latest drawing in carriage v1.1.jpg.
+
+In order to do subtraction I came up with a tweak that Babbage apparently never used: rather than having two different numberings on the wheel to change the chain-of-9 detector using the fixed and movable wires into a chain-of-0 detector, I move the detector itself to either the 9-position of the movable wire or the 10-position. This results in a considerable simplification.
+
+There may well be some fatal flaw in this scheme, because surely Babbage would otherwise have proposed it. But so far neither Tim Robinson nor I have discovered the problem. 
+
+I may be ready to build a prototype to try it out. The idea is to build a frame, perhaps 12"W x 18"L x 12"H, to contain the 19th-century mechanism shown in the drawing. Below that will be the 21st-century magic that animates it for testing: 7 stepper motors to provide shaft rotary motions, and 5 to provide shaft lifting motions using lead screws. Plus 12 stepper motor drivers, a microprocessor, and a sprinkling of software.
+
