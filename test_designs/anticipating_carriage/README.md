@@ -8,15 +8,21 @@ designs for it, so we have many to choose from or be inspired by.
 
 This is a blog-like record of design ideas and sketches for it, in reverse chronological order.
 
+## 4 April 2024
+
+The parts have now been made and the carriage tester prototype is assembled; see carriage v2 tester.jpg. Now I can begin debugging.
+
+I'm not optimistic.
+
 ## 10 Mar 2024
 
 The prototype for testing the anticipating carriage continues to develop. 
 
-But first there were some side roads leading to dead ends that wasted several days. I thought the carry warning could be simplified by putting the carriage digit wheel gear adjacent to the carry nib disc, but that doesn't work because when the carry sector engages, it interferes with the movable wire. Then I tried doing away with the big carry pinion by using the fixed long pinion instead, but it too causes interference. So it's basically back to the 29 Feb 2024 design.
+There were some side roads leading to dead ends that wasted several days. I thought the carry warning could be simplified by putting the carriage digit wheel gear adjacent to the carry nib disc, but that doesn't work because when the carry sector engages, it interferes with the movable wire. Then I tried doing away with the big intermediate carry pinion by using the regular fixed long pinion instead, but it too causes interference. So it's basically back to the 29 Feb 2024 design.
 
-What is shown here as V2 is a tester for it that implements addition and subtraction to the anticipating carriage, with optionally making a copy of the input onto the second number of the input digit wheel stack. That will be enough mechanism to run a program to compute Fibonacci numbers. The prototype also implements, just for testing in anticipating of what is needed for multiplication and division, power-of-10 shifting in both directions.
+What is shown here as V2 is a tester for it that implements addition and subtraction to the anticipating carriage, optionally making a copy of the input onto the second number of the input digit wheel stack. That will be enough mechanism to run a program to compute Fibonacci numbers. The prototype also implements, just for testing in anticipation of what will be needed for multiplication and division, power-of-10 shifting in both directions.
 
-I've started to build the frame for the prototype, and to wire up the electronics for the stepper motors using multiple copies of a PC board I had previously designed for automating our weaving loom, https://github.com/LenShustek/loom. But the detailed mechanical design needs to be studied a little more before it's time to start 3D printing the parts. If anyone sees a problem please let me know quickly.
+I've started to build the frame for the prototype, and to wire up the electronics for the stepper motors using multiple copies of a PC board I had designed several years ago for automating our weaving loom, https://github.com/LenShustek/loom. But the detailed mechanical design needs to be studied a little more before it's time to start 3D printing the parts. If anyone sees a problem please let me know quickly.
 
 
 ## 29 Feb 2024

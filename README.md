@@ -9,8 +9,8 @@ notes, simulations, and designs as they are developed. Nothing here is static, a
 no decision is immutable until we start construction, and maybe not even then. 
 
 If you are interested, the place to start is the latest version of the proposal
-document in this directory. It will be modified frequently, but there is a log at
-the end that highlights changes.
+document in this directory. It will be modified occasionally, but there is a log at
+the end that highlights what has changed.
 
 Other directories will appear as various parts of the project are developed. 
 These are the first to be added:
