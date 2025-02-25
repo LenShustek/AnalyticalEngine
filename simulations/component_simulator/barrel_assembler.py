@@ -23,15 +23,16 @@ arguments in three sections:
 - The first optional argument is a quoted string representing a symbolic label we are defining
   at the location of this vertical, which can be the target of jumps.
   
-- The next arguments are the names of the studs that are to be "on". If a stud isn't named, it is
-  programmed to be "off". (We don't currently implement the feature where neither stud is present,
-  indicating "same as before", but we could.) The stud names and their semantics are defined using
-  the "create_stud" function in the simulator module; see there for details.
+- The next arguments are the names of the studs (or names of sets of studs) that are to be "on". 
+  If a stud isn't named, it is programmed to be "off". (We don't currently implement the feature 
+  where neither stud is present, indicating "same as before", but we could.) The stud names and 
+  their semantics are defined using   the "create_stud" function in the simulator module; see 
+  there for details.
   
-- The last optional argument is a quoted string that is the name of a symbolic label, and it
+- The last optional argument is a quoted string that is the name of a symbolic label, which
   generates a jump to the vertical at that label. If any stud in this vertical is defined to
   be a conditional test, and if the condition is satisfied, the jump will be to the vertical
-  one further away. If there is no jump specified, the default is a jump to the following instruction.
+  one further away. If there is no jump specified, the default is to jump to the following instruction.
   
 The assembler will complain about missing or duplicate labels, and about jump distances greater than 7.
 
@@ -157,7 +158,7 @@ class program: #a program for one barrel
            lab.defined = True
            self.labels[name] = lab #add it to the dictionary of labels
     
-    def goto(self, labelname):
+    def goto(self, labelname): #process a jump request
         here = len(self.verticals) #the vertical we are about to define
         if labelname in self.labels: #it is a reference to an existing label
             lab = self.labels[labelname]
@@ -180,9 +181,9 @@ class program: #a program for one barrel
                   jumpstuds = self.goto(arg) #generate the jump studs
                   for stud in jumpstuds: studnumlist.append(stud) #and add them to our vertical
                else: self.label(arg)  #it is a label definition
-            else: #stud, or list of studs
+            else: #stud, or a set of studs
                 if (type(arg) != set):
-                    arg = {arg} #convert stud to a set
+                    arg = {arg} #convert single stud into a set
                 for stud in arg:
                     if not stud.studnum in studnumlist: #ignore attempts to add duplicates
                         studnumlist.append(stud.studnum) #add this stud's number to the vertical
@@ -202,8 +203,6 @@ class program: #a program for one barrel
              #Add stud.OFF studs for any not specified.
              #(This will need to change if we implement no studs to mean "same as before".)
              for studnum in range(0, len(self.studnames), 2):
-                if studnum == 114:
-                    pass
                 if not studnum in vert and not studnum+1 in vert: #neither OR nor OFF specified
                     self.verticals[vertnum].append(studnum+STUDOFF)
              self.verticals[vertnum] = sorted(self.verticals[vertnum]) #finally, sort by stud number
@@ -217,7 +216,7 @@ class program: #a program for one barrel
        for vertnum in range(len(self.verticals)):
           vert = self.verticals[vertnum]
           label = " "
-          for labname in self.labels: #see if there is a label here
+          for labname in self.labels: #see if there is a label defined here
               if self.labels[labname].vndx == vertnum: label = labname
           print(f"{label:>{namewidth}} {vertnum:3}  ", end="")
           studwidth = 0
@@ -225,7 +224,7 @@ class program: #a program for one barrel
           for stud in vert: #show any "on" studs other than moves
             if stud >= studnum_moves and stud%2 == STUDON: 
                 if did_one > 0: print(", ", end="")
-                if studwidth > maxstudwidth-14: # too long: break to another line
+                if studwidth > maxstudwidth-12: # getting too long: break to another line
                     print() 
                     print(f"{' ':>{namewidth+6}}", end="")
                     studwidth = 0
@@ -238,7 +237,7 @@ class program: #a program for one barrel
               if vert[3] == MOVEBACK: distance = -distance
               target = vertnum + distance 
               targetname=str(target)
-              for name, lab in self.labels.items():
+              for name, lab in self.labels.items(): #try to use a symbolic name, if there is one
                   if lab.vndx == target: targetname=name
               if vertnum in self.skip_verticals: #show both destinations if this could be a skip
                    targetname += " or "+targetname
@@ -248,7 +247,7 @@ class program: #a program for one barrel
                    else:
                         targetname += "-1"
                         target -= 1
-                   for name, lab in self.labels.items():
+                   for name, lab in self.labels.items(): #show a symblolic name there too
                        if lab.vndx == target: 
                            targetname += " (" + name + ")"
               if studwidth < maxstudwidth: #space out to the jump area
@@ -267,7 +266,7 @@ class program: #a program for one barrel
             used = False
             print(f"{studnum:3} {self.studnames[studnum] if studnum%2==STUDOFF else ' '*namewidth:>{namewidth}} ", end="")
             print(f'{" ON " if studnum%2==STUDON else " OFF"} ___', end="")
-            for vert in range(len(self.verticals)):
+            for vert in range(len(self.verticals)): #see which verticals have this stud ON
                 stud_present = self.verticals[vert][studnum//2] == studnum+STUDON
                 print(f'{"__*__" if stud_present else "_____"}', end="")
                 used |= stud_present

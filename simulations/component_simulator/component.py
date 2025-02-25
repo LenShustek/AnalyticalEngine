@@ -46,7 +46,7 @@ The purpose of the randomization in step 2 is to reveal if there are any race co
 order in which component state changes are done. It's not a proof, but making many runs with different 
 orderings should help flush out problems. 
 
-29 Dec 2023, L. Shustek, originally written
+29 Dec 2023, L. Shustek, started
 16 Feb 2025, L. Shustek, major revision to model all gears and pinions and the way they mesh
 '''
 import random
@@ -81,16 +81,16 @@ class Component: #every part that might be acted upon is a Component
       self.typename = typename
       self.name = name
 
-all_gears = []  # global list of all gears
+all_gears = [] 
 class Gear(Component): #a circular gear (on a pinion or digit wheel) that can mesh with others
     def __init__(self, typename, name):
        Component.__init__(self, typename, name)
        all_gears.append(self)
        self.direction = CCW #the direction we're moving
-       self.driving_gear = self #the gear that is driving us
+       self.driving_gear = self #the gear that is driving us, if any
        self.meshes = [] #a list of all rotating objects (pinions or wheels) we are currently meshed with
         
-all_pinions_and_wheels = [] # global list of all pinions and wheels
+all_pinions_and_wheels = [] 
 class Pinion(Component): #a pinion gear that can mesh with other gears, perhaps conditionally
     def __init__(self, typename, pinionstack, pinionnum):
        Component.__init__(self, typename, pinionstack.name+".P"+str(pinionnum))
@@ -110,7 +110,7 @@ class Pinion(Component): #a pinion gear that can mesh with other gears, perhaps 
     def advance(self, direction): #rotate a pinion gear
         self.direction = direction #TEMP need to do this?
         if trace & TRACE_GEARS: print(f'         rotated {self.typename} {self.name} {DIRstr(self.direction)} ')
-        rotate_meshed_gears(self.gear) # queue movement of all objects meshed with our gear
+        rotate_meshed_gears(self.gear) # queue movement of all objects (pinions or wheels) meshed with our gear
   
 all_pinionstacks = []  
 class PinionStack(Component): #a stack of pinions, that perhaps can move vertically
@@ -131,7 +131,8 @@ class PinionStack(Component): #a stack of pinions, that perhaps can move vertica
        
 class DigitWheel(Component): #a basic digit wheel
 # it can be moved conditionally by a finger on its axle that impinges on the finger of the wheel,
-# or unconditionally because the Anticipating Carriage is handing us a carry
+# or unconditionally because the Anticipating Carriage is handing us a carry, or
+# because we're being incremented or decremented by 1
    def __init__(self, typename, digitstack, digitnum):
        Component.__init__(self, typename, digitstack.name+".W"+str(digitnum))
        all_pinions_and_wheels.append(self) #add us to the list of all pinions and wheels
@@ -177,7 +178,7 @@ class DigitWheel(Component): #a basic digit wheel
          self.digitstack.changed = True #note that the value on this digit stack has changed
          rotate_meshed_gears(self.gear) # queue movement of all objects meshed with our gear
 
-class DigitWheelCarry(DigitWheel): #a digit wheel with a carry warning arm
+class DigitWheelCarry(DigitWheel): #a digit wheel with a carry warning arm attached (for the anticiating carriage)
    def __init__(self, typename, digitstack, digitnum):
       DigitWheel.__init__(self, typename, digitstack, digitnum) #create the basic wheel
       self.carry_warned = False     #and add the carry state
@@ -205,15 +206,13 @@ class DigitStack(Component): #a stack of digit wheels, which might be interleave
       self.meshed_axles = [] #the list of axles we are currently meshed to
    def advance(self, direction):
        if trace & TRACE_ADVANCE: print(f' advancing digitstack {self.name}')
-       if self.count_by_1: #we are decrementing ourself by one as a special function
+       if self.count_by_1: #we are being incremented or decremented by 1
            lsb_wheel = self.wheels[0] #the units wheel of the first number in the cage
-           #lsb_wheel.gear.direction = CCW; now set by count1()
+           #lsb_wheel.gear.direction = CCW; the direction is now set by count1()
            lsb_wheel.movewheel(lsb_wheel.gear.direction)  #increment or decrement it by one
            self.count_by_1 = False;
-       else: #we are "giving off"
-           if self == B1 and BARDIV.barrel_position == 7:
-               pass
-           for wh in self.wheels: #see which wheels will advance one "unit of space"
+       else: #we are "giving off" our value
+            for wh in self.wheels: #see which wheels will advance one "unit of space"
                 wh.checkfinger(self.axle.fingerpos)
  #DigitStack meta functions
    def _setvalue(self, number:int, print=True): #set a multi-digit number on the wheels
@@ -238,7 +237,7 @@ class DigitStack(Component): #a stack of digit wheels, which might be interleave
        if self.wheels[NDIGITS].whposition & 1: val = -val
        return val
    
-all_axles = []  #a global list of all the axles
+all_axles = [] 
 class Axle(Component): #an axle that goes through one or more interleaved DigitStacks and has fingers
    def __init__(self, name, numstacks, withcarry=False):
       Component.__init__(self, "Axle", name)
@@ -260,7 +259,7 @@ class Axle(Component): #an axle that goes through one or more interleaved DigitS
              self.digitstacks[0].advance(direction)
           elif self.fingerheight == -DIGITFINGER_DISTANCE: #just moving fingers, not wheels
              self.digitstacks[1].advance(direction)
- #Axle meta functions useful for carriage axes
+ #Axle meta functions that are useful for carriage axes that have only one digitstack
    def _setvalue(self, number:int, print=True):
       self.digitstacks[0]._setvalue(number, print)
    def _printvalue(self):
@@ -284,10 +283,10 @@ class AxleCarriage(Component): #a set of axles adjacent to an Axle that has digi
       wn = 0
       while wn < NDIGITS: #look for a wheel with a carry warning
          if self.axle.digitstacks[0].wheels[wn].carry_warned: #found one
-            while wn < NDIGITS: #now look for a chain of following 9's (addition) or 0's (subtraction)
+            while wn < NDIGITS: #now look for a chain of subsequent 9's (addition) or 0's (subtraction)
                wn += 1
                if wn < NDIGITS and self.axle.digitstacks[0].wheels[wn].whposition == (0 if direction == CCW else 9):
-                  self.carry_needed[wn] = True #and flag each of them to be incremented or decremented
+                  self.carry_needed[wn] = True #flag each of them to be incremented or decremented
                else: break #chain ended
          else: wn += 1
    def do_carriage(self, direction): #execute the flagged carries
@@ -297,10 +296,9 @@ class AxleCarriage(Component): #a set of axles adjacent to an Axle that has digi
             else: self.axle.digitstacks[0].wheels[wn+1].movewheel(direction)
             self.axle.digitstacks[0].wheels[wn].carry_warned = False #reset the carry indications
             self.carry_needed[wn] = False
-            self.axle.digitstacks[0].doing_carries = True #prevent additional carry warning
-            #ERROR: when movewheel later causes advance to happen, carry_warned gets set again
+            self.axle.digitstacks[0].doing_carries = True #prevent additional carry warning from carries
 
-class Counter(Component): # an abstract component that can count up to NDIGITS
+class Counter(Component): # an abstract component that can count from 0 to NDIGITS
     def __init__(self, name):
         Component.__init__(self, "Counter", name)
         self.driven = False
@@ -339,7 +337,7 @@ def compute_meshes(show=False): #current meshes, depending on vertical axle posi
             vpos = pn.mesh_vposition[ndx]
             object = pn.mesh_object[ndx]
             if type(object) != Pinion and type(object) != DigitWheel and type(object) != DigitWheelCarry:
-                error(object, "wrong object type")
+                error(object, "wrong object type when computing meshes")
             if vpos == ALWAYS or vpos == pn.vposition: #this mesh is active
                 pn.gear.meshes.append(object) #we are meshed with it
                 object.gear.meshes.append(pn) #and it is meshed with us
@@ -360,14 +358,21 @@ def show_all_meshes():
 def rotate_meshed_gears(driven_gear): #a gear just moved: queue all undriven objects meshed to it for movememn
     if trace & TRACE_QUEUES: print(f'     queuing objects meshed to gear {driven_gear.name}')
     for meshedobject in driven_gear.meshes:
-        if meshedobject.driven and meshedobject.gear != driven_gear.driving_gear: #driven by someone other than us
+        if meshedobject.driven and meshedobject.gear != driven_gear.driving_gear: #driven by someone other than us: conflict
             error(meshedobject, f" is a candidate for meshing by {driven_gear.name} but is already being driven by {driven_gear.driving_gear.name}") 
         if not meshedobject.driven:
             meshedobject.gear.driving_gear = driven_gear #record the gear doing the driving
             meshedobject.meshed_rotate(not driven_gear.direction) #queue rotation is the opposite direction
        
 ######  microprogram barrels  #########    
-        
+
+awaiting_advance = [] #the list of components awaiting a time unit advance
+timeunit = 0
+timelimit = 0
+cycle = 0
+seconds_per_timeunit = .157
+trace = 0  #what trace output we want
+       
 class Stud(Component): #this define the a stud on a barrel
 #This is an unusual class in that every instance stores a pointer to an action function that is
 #invoked by the barrel if the stud is on when the barrel advances and the current vertical takes effect.
@@ -396,7 +401,7 @@ class Barrel(Component):
         self.driven = False; #we are retriggered in the main outer loop
         vert = self.program.verticals[self.barrel_position]
         #if trace & TRACE_BARRELS: print(f"         barrel vertical {self.barrel_position} phase {self.phase} at timeunit {timeunit}")
-        if self.phase > 20: error(self, "phase > 20")
+        if self.phase > 20: error(self, "barrel phase > 20")
         
         '''Here's what happens in the various cycle phases from 1 to 15 or 20.
          Much of it happens in the functions that define the semantics of the studs.
@@ -422,20 +427,16 @@ class Barrel(Component):
             if studnum&1 == 0: #if it's an "on" stud
                 stud = studlist[studnum]
                 if stud.action_fct != None: stud.action_fct(self)
-        
         #now do phase-dependent global operations        
-        if self.phase==3: 
+        if self.phase==3: #implement the gear meshing based on what was lifted
             compute_meshes()
-            if self.barrel_position == 7: 
-                #show_all_meshes() #TEMP
-                pass
         if self.phase >= 4 and self.phase <= 12: #this is the "giving off" time for driven axles
            for axle in all_axles: #so advance them
                if axle.driven:
                    add_to_advance_list(axle, CCW) #give all axles an opportunity to advance
-        if self.phase == 13: #unmesh
+        if self.phase == 13: #unmesh the gears
             remove_meshes()
-        if self.phase == 14: #restore fingers on driven axles
+        if self.phase == 14: #advance fingers on driven axles to be ready for the next giving-off
             for axle in all_axles:
                 if axle.driven:
                     add_to_advance_list(axle, CCW)
@@ -443,7 +444,7 @@ class Barrel(Component):
             self.move_distance += -1 if self.jump_backwards else +1 #so do it now
             
         self.phase += 1 #set up to go to the next phase when we are activated at the next time unit
-        if self.phase > self.num_phases: #the cycle has ended
+        if self.phase > self.num_phases: #if this ends the cycle
             if trace & TRACE_ENDING_VALUES: show_changed_values()
             if trace & TRACE_JUMPS and self.move_distance != 1:
                 print(f"      jmp from {vertical_name(self, self.barrel_position)} to {vertical_name(self, self.barrel_position + self.move_distance)}, doskip={self.doskip} back={MOVEBACK.studnum in vert}")
@@ -452,11 +453,6 @@ class Barrel(Component):
             #move to the new vertical and start over with phase 1
             self.reset((self.barrel_position + self.move_distance) % len(self.program.verticals))
                                 
-awaiting_advance = [] #the list of components awaiting a time unit advance
-timeunit = 0
-cycle = 0
-seconds_per_timeunit = .157
-
 def show_advance_list():
     if len(awaiting_advance) == 0:
         print("<empty>")
@@ -556,20 +552,17 @@ def initialize_studs(): #initialize the stud list with the standard ones for jum
     create_stud("MOVE4",    lambda barrel: chkmove(barrel, 6, 4))  #use phases 6,7,8,9 to move 4
     create_stud("MOVEBACK", lambda barrel: setbackwards(barrel)) 
     studnum_moves = studnum #note the end of the jump studs
- 
 
-
-########  define the Plan 27 configuration  #########
+########  the Plan 27 configuration  #########
 
 DIGITMESH_DISTANCE = 0.4 # how far connecting pinions from digitwheels to long pinions move
 LONGPINION_DISTANCE = 0.4 # how far movable long pinions move for shifting
 REVERSE_PINION_DISTANCE = 0.3 #how far carriage wheel reversing pinions move to engage
 FC_DISTANCE = 0.3 #how far FC moves to engage F when reversing, or twice this if not reversing
 DIGITFINGER_DISTANCE = 0.4 #how far up or down a digit finger height changes to engage a digit wheel
-trace = 0  #what trace output we want
-timelimit = 0
 
-# the names are notated from left (A) to right (C)
+# define the axles and pinion stacks, and the meshes possible between their gears baseed on lifts
+# see Babbage's drawing BAB/A/093, or our Solidworks labeled simplified plan drawing
 A = Axle("A",NPERCAGE)  #A1 and A2 digit wheels
 P11 = PinionStack("P11", NDIGITS) #pinions connecting from A to MP
 P12 = PinionStack("P12", NDIGITS) #pinions connecting from A to FP
@@ -645,13 +638,14 @@ FC2.define_mesh(2*FC_DISTANCE, FP3.pinions)
 FC2.define_mesh(FC_DISTANCE, R2.pinions) 
 CTR = Counter("CTR")
 
+#show some statistics
 num_possible_meshes = 0
 for pn in all_pinions_and_wheels:
    if pn.mesh_vposition: num_possible_meshes += len(pn.mesh_vposition)
 print("\r")
 print(f"configuration: {NDIGITS} digits in each of {len(all_axles)} digit stacks, {len(all_pinionstacks)} pinion stacks, {len(all_gears)} total gears, {num_possible_meshes} possible gear meshes")
 
-#### define the studs we use for the multiplication/division barrel, and their semantics
+#### define the studs we use for the multiplication/division barrels, and their semantics
 
 def lift(barrel, axle_or_pinionstack, distance): #RAISE/LOWER: axle vertical motion
     if barrel.phase == 2: #do the liting
@@ -671,15 +665,15 @@ def carry(barrel, carriage, direction): #ADD/SUB: compute and execute anticipati
 
 def count1(barrel, axle:Axle, direction): #COUNT1: change a carriage axis by one without giving off to any other column
     if barrel.phase == 2:
-        axle.digitstacks[0].count_by_1 = True #special count mode
-        axle.digitstacks[0].wheels[0].gear.direction = direction
+        axle.digitstacks[0].count_by_1 = True #signal count mode
+        axle.digitstacks[0].wheels[0].gear.direction = direction #CCW=decrement, CW=increment
         axle.driven = True
 
-def counter_change(barrel, counter, direction):
+def counter_change(barrel, counter, direction): #increment or decrement a counter
     if barrel.phase == 4:
         add_to_advance_list(counter, direction)
         
-def counter_clear(barrel, counter):
+def counter_clear(barrel, counter): #cleaer a counter
     if barrel.phase == 4:
         counter.clear()
        
@@ -703,61 +697,62 @@ def dostop(barrel): #STOP
     if barrel.phase == 2: stopped = True
         
 initialize_studs()   # F1 and F2 have carriage, so only one digit wheel in a cage
-create_stud("RAISE_MP1",    lambda barrel: lift(barrel, MP1, LONGPINION_DISTANCE))
-create_stud("RAISE_MP2",    lambda barrel: lift(barrel, MP2, LONGPINION_DISTANCE))
-create_stud("RAISE_MP3",    lambda barrel: lift(barrel, MP3, LONGPINION_DISTANCE))
+#studs commented out are not currently used by either barrel
+create_stud("RAISE_MP1",     lambda barrel: lift(barrel, MP1, LONGPINION_DISTANCE))
+create_stud("RAISE_MP2",     lambda barrel: lift(barrel, MP2, LONGPINION_DISTANCE))
+create_stud("RAISE_MP3",     lambda barrel: lift(barrel, MP3, LONGPINION_DISTANCE))
 create_stud("REVERSE_R1",    lambda barrel: lift(barrel, R1, REVERSE_PINION_DISTANCE))
-create_stud("REVERSE_FC1",    lambda barrel: lift(barrel, FC1, FC_DISTANCE))
-create_stud("MESH_FC1",       lambda barrel: lift(barrel, FC1, FC_DISTANCE*2))
+create_stud("REVERSE_FC1",   lambda barrel: lift(barrel, FC1, FC_DISTANCE))
+create_stud("MESH_FC1",      lambda barrel: lift(barrel, FC1, FC_DISTANCE*2))
 create_stud("REVERSE_R2",    lambda barrel: lift(barrel, R2, REVERSE_PINION_DISTANCE))
-create_stud("REVERSE_FC2",    lambda barrel: lift(barrel, FC2, FC_DISTANCE))
-create_stud("MESH_FC2",       lambda barrel: lift(barrel, FC2, FC_DISTANCE*2))
+create_stud("REVERSE_FC2",   lambda barrel: lift(barrel, FC2, FC_DISTANCE))
+create_stud("MESH_FC2",      lambda barrel: lift(barrel, FC2, FC_DISTANCE*2))
 create_stud("RAISE_P11",     lambda barrel: lift(barrel, P11, DIGITMESH_DISTANCE))
 create_stud("LOWER_P11",     lambda barrel: lift(barrel, P11, -DIGITMESH_DISTANCE))
 create_stud("LOWER_P12",     lambda barrel: lift(barrel, P12, -DIGITMESH_DISTANCE))
 create_stud("RAISE_P12",     lambda barrel: lift(barrel, P12, DIGITMESH_DISTANCE))
 create_stud("RAISE_P13",     lambda barrel: lift(barrel, P13, DIGITMESH_DISTANCE))
-#create_stud("LOWER_P14",     lambda barrel: lift(barrel, P14, -DIGITMESH_DISTANCE))
+#create_stud("LOWER_P14",      lambda barrel: lift(barrel, P14, -DIGITMESH_DISTANCE))
 create_stud("RAISE_P14",     lambda barrel: lift(barrel, P14, DIGITMESH_DISTANCE))
 create_stud("RAISE_P21",     lambda barrel: lift(barrel, P21, DIGITMESH_DISTANCE))
 create_stud("LOWER_P21",     lambda barrel: lift(barrel, P21, -DIGITMESH_DISTANCE))
 create_stud("RAISE_P22",     lambda barrel: lift(barrel, P22, DIGITMESH_DISTANCE))
 create_stud("LOWER_P22",     lambda barrel: lift(barrel, P22, -DIGITMESH_DISTANCE))
-#create_stud("RAISE_P23",    lambda barrel: lift(barrel, P23, DIGITMESH_DISTANCE))
-create_stud("LOWER_P23",    lambda barrel: lift(barrel, P23, -DIGITMESH_DISTANCE))
-create_stud("RAISE_P24",    lambda barrel: lift(barrel, P24, DIGITMESH_DISTANCE))
-#create_stud("LOWER_P24",    lambda barrel: lift(barrel, P24, -DIGITMESH_DISTANCE))
-create_stud("RAISE_P31",    lambda barrel: lift(barrel, P31, DIGITMESH_DISTANCE))
-create_stud("LOWER_P31",    lambda barrel: lift(barrel, P31, -DIGITMESH_DISTANCE))
-create_stud("RAISE_P32",    lambda barrel: lift(barrel, P32, DIGITMESH_DISTANCE))
-create_stud("LOWER_P32",    lambda barrel: lift(barrel, P32, -DIGITMESH_DISTANCE))
-create_stud("RAISE_A",     lambda barrel: lift(barrel, A, DIGITFINGER_DISTANCE))
-create_stud("LOWER_A",     lambda barrel: lift(barrel, A, -DIGITFINGER_DISTANCE))
-create_stud("RAISE_B",     lambda barrel: lift(barrel, B, DIGITFINGER_DISTANCE))
-create_stud("LOWER_B",     lambda barrel: lift(barrel, B, -DIGITMESH_DISTANCE))
-create_stud("RAISE_C",     lambda barrel: lift(barrel, C, DIGITFINGER_DISTANCE))
-create_stud("LOWER_C",     lambda barrel: lift(barrel, C, -DIGITMESH_DISTANCE))
-create_stud("RAISE_F1",     lambda barrel: lift(barrel, F1, DIGITMESH_DISTANCE))
-create_stud("RAISE_F2",     lambda barrel: lift(barrel, F2, DIGITMESH_DISTANCE))
-create_stud("ADD_F1C",     lambda barrel: carry(barrel, F1C, CW))
-create_stud("SUB_F1C",     lambda barrel: carry(barrel, F1C, CCW))
-create_stud("ADD_F2C",     lambda barrel: carry(barrel, F2C, CW))
-create_stud("SUB_F2C",     lambda barrel: carry(barrel, F2C, CCW))
-create_stud("MINUS1F1",         lambda barrel: count1(barrel, F1, CCW))
-create_stud("MINUS1F2",         lambda barrel: count1(barrel, F2, CCW))
-create_stud("PLUS1F1",          lambda barrel: count1(barrel, F1, CW))
-create_stud("PLUS1CTR",        lambda barrel: counter_change(barrel, CTR, CW))
-create_stud("MINUS1CTR",        lambda barrel: counter_change(barrel, CTR, CCW))
-create_stud("CLEARCTR",         lambda barrel: counter_clear(barrel, CTR))
-create_stud("IF_RUNUP_F1",    lambda barrel: chk_runup(barrel, F1C, True), can_skip=True)
-create_stud("IF_RUNUP_F2",    lambda barrel: chk_runup(barrel, F2C, True), can_skip=True)
-create_stud("IF_NORUNUP_F1",  lambda barrel: chk_runup(barrel, F1C, False), can_skip=True)
-create_stud("IF_NORUNUP_F2",  lambda barrel: chk_runup(barrel, F2C, False), can_skip=True)
-create_stud("IF_RUNUP_CTR",    lambda barrel: chk_runup(barrel, CTR, True), can_skip=True)
-create_stud("IF_NORUNUP_CTR",    lambda barrel: chk_runup(barrel, CTR, False), can_skip=True)
+#create_stud("RAISE_P23",     lambda barrel: lift(barrel, P23, DIGITMESH_DISTANCE))
+create_stud("LOWER_P23",     lambda barrel: lift(barrel, P23, -DIGITMESH_DISTANCE))
+create_stud("RAISE_P24",     lambda barrel: lift(barrel, P24, DIGITMESH_DISTANCE))
+#create_stud("LOWER_P24",     lambda barrel: lift(barrel, P24, -DIGITMESH_DISTANCE))
+create_stud("RAISE_P31",     lambda barrel: lift(barrel, P31, DIGITMESH_DISTANCE))
+create_stud("LOWER_P31",     lambda barrel: lift(barrel, P31, -DIGITMESH_DISTANCE))
+create_stud("RAISE_P32",     lambda barrel: lift(barrel, P32, DIGITMESH_DISTANCE))
+create_stud("LOWER_P32",     lambda barrel: lift(barrel, P32, -DIGITMESH_DISTANCE))
+create_stud("RAISE_A",       lambda barrel: lift(barrel, A, DIGITFINGER_DISTANCE))
+create_stud("LOWER_A",       lambda barrel: lift(barrel, A, -DIGITFINGER_DISTANCE))
+create_stud("RAISE_B",       lambda barrel: lift(barrel, B, DIGITFINGER_DISTANCE))
+create_stud("LOWER_B",       lambda barrel: lift(barrel, B, -DIGITMESH_DISTANCE))
+create_stud("RAISE_C",       lambda barrel: lift(barrel, C, DIGITFINGER_DISTANCE))
+create_stud("LOWER_C",       lambda barrel: lift(barrel, C, -DIGITMESH_DISTANCE))
+create_stud("RAISE_F1",      lambda barrel: lift(barrel, F1, DIGITMESH_DISTANCE))
+create_stud("RAISE_F2",      lambda barrel: lift(barrel, F2, DIGITMESH_DISTANCE))
+create_stud("ADD_F1C",       lambda barrel: carry(barrel, F1C, CW))
+create_stud("SUB_F1C",       lambda barrel: carry(barrel, F1C, CCW))
+create_stud("ADD_F2C",       lambda barrel: carry(barrel, F2C, CW))
+create_stud("SUB_F2C",       lambda barrel: carry(barrel, F2C, CCW))
+create_stud("MINUS1F1",      lambda barrel: count1(barrel, F1, CCW))
+create_stud("MINUS1F2",      lambda barrel: count1(barrel, F2, CCW))
+create_stud("PLUS1F1",       lambda barrel: count1(barrel, F1, CW))
+create_stud("PLUS1CTR",      lambda barrel: counter_change(barrel, CTR, CW))
+create_stud("MINUS1CTR",     lambda barrel: counter_change(barrel, CTR, CCW))
+create_stud("CLEARCTR",      lambda barrel: counter_clear(barrel, CTR))
+create_stud("IF_RUNUP_F1",   lambda barrel: chk_runup(barrel, F1C, True), can_skip=True)
+create_stud("IF_RUNUP_F2",   lambda barrel: chk_runup(barrel, F2C, True), can_skip=True)
+create_stud("IF_NORUNUP_F1", lambda barrel: chk_runup(barrel, F1C, False), can_skip=True)
+create_stud("IF_NORUNUP_F2", lambda barrel: chk_runup(barrel, F2C, False), can_skip=True)
+create_stud("IF_RUNUP_CTR",  lambda barrel: chk_runup(barrel, CTR, True), can_skip=True)
+create_stud("IF_NORUNUP_CTR",lambda barrel: chk_runup(barrel, CTR, False), can_skip=True)
 #create_stud("IF_NEG_F1",     lambda barrel: chk_sign(barrel, F1, True), can_skip=True)
-create_stud("CYCLE20",      lambda barrel: set_longcycle(barrel))
-create_stud("STOP",           lambda barrel: dostop(barrel))
+create_stud("CYCLE20",       lambda barrel: set_longcycle(barrel))
+create_stud("STOP",          lambda barrel: dostop(barrel))
 
 # barrel assembler "macros" that are sets of studs
 #cages have x1 in upper, x2 in lower
@@ -801,6 +796,8 @@ ZERO_CTR = {CLEARCTR}
 DECR_F1 = {MINUS1F1, SUB_F1C, CYCLE20}
 DECR_F2 = {MINUS1F2, SUB_F2C, CYCLE20}
 INCR_F1 = {PLUS1F1, ADD_F1C, CYCLE20}
+
+########  define the multiply and divide barrels  ########
 
 ''' multiply #3A, C1 x B1 to F2
 *** like 3A, but optimize next digit transition to be always 5 cycles
@@ -883,6 +880,7 @@ divpgm.disassemble()
 divpgm.showverticals()
 BARDIV = Barrel("BARDIV", divpgm) #create a barrel with that program on it
 
+# test drivers
 
 def domult(x, y, verbose=True): #multiply C1 x B1 and put the product in F2
     global stopped, timeunit, awaiting_advance, cycle
@@ -938,3 +936,5 @@ for _ in range(5):
     domult(random.randrange(0,maxtest), random.randrange(0,maxtest))
 for _ in range(10):
     dodiv(random.randrange(0,maxtest), random.randrange(0,maxtest//1000))
+    
+#/*
