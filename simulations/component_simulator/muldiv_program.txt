@@ -1,0 +1,80 @@
+''' multiply #3A, C1 x B1 to F2
+*** like 3A, but optimize next digit transition to be always 5 cycles
+*** only requires running-up detection, not zero detection
+zero F2, F1, C2, B2 // one result, 3 temps, carriages F2,F1
+outerloop: // multiplicand  in C1, multiplier in B1
+  B1 -> shr+C2, shr+B2, +F1 // multiplier to F1, /10 to B2 and C2
+  C2 -> shl-F1 // isolate lsd in F1
+  --F1; if (F1<0) goto next1; else goto innerloop1 // skip innerloop if multiplier digit is 0
+next1:  //(shifted) multiplicand in C1, remaining multiplier in B2, -1 in F1
+  C1 -> shl +C2; B2 -> +F1, +B1; if (F1<0) goto stop else goto next1a
+innerloop1: // shifted multiplicand in C1, multiplier digit in F1, product accumulating in F2
+  C1 -> +F2, +C2; --F1;  if (F1>=0) goto innerloop2 else goto next2 // one cycle per addition!
+next2a: // shifted multiplicand in C1, multiplier in B1
+  F1 ->;  goto outerloop
+stop: stop
+next1a: // shifted multiplicand in C2, multiplier in B1
+  F1 ->; C2 -> +C1; goto outerloop
+innerloop2: // shifted multiplicand in C2, multiplier digit in F1, product accumulating in F2
+  C2 -> +F2, +C1; --F1; if (F1>=0) goto innerloop1 else goto next1 // one cycle per addition!
+next2:  // (shifted) multiplicand in C2, remaining multiplier in B2, -1 in F1
+  C2 -> shl +C1;  B2 -> +F1, +B1;  if (F1<0) goto stop else goto next2a
+ '''
+mulpgm = program("multiply program", studnames) #create and assemble the program
+mulpgm.vertical(              ZERO_F1, ZERO_F2, ZERO_B2, ZERO_C2)
+mulpgm.vertical("outerloop",  B1_SHR_ADD_C2, B1_SHR_ADD_B2, B1_ADD_F1)
+mulpgm.vertical(              C2_SHL_SUB_F1)
+mulpgm.vertical(              DECR_F1, IF_RUNUP_F1, "next1")
+mulpgm.vertical("next1",      C1_SHL_ADD_C2, B2_ADD_F1, B2_ADD_B1, IF_NORUNUP_F1, "stop")
+mulpgm.vertical("innerloop1", C1_ADD_F2, C1_ADD_C2, DECR_F1, IF_NORUNUP_F1, "innerloop2")
+mulpgm.vertical("next2a",     ZERO_F1, "outerloop")
+mulpgm.vertical("stop",       STOP)
+mulpgm.vertical("next1a",     ZERO_F1, C2_ADD_C1, "outerloop")
+mulpgm.vertical("innerloop2", C2_ADD_F2, C2_ADD_C1, DECR_F1, IF_NORUNUP_F1, "innerloop1")
+mulpgm.vertical("next2",       C2_SHL_ADD_C1, B2_ADD_F1, B2_ADD_B1, IF_NORUNUP_F1, "stop");
+mulpgm.end_program()
+mulpgm.disassemble()
+mulpgm.showverticals()
+BARMUL = Barrel("BARMUL", mulpgm) #create a barrel with that program on it
+
+'''/*** divide #4, C2 / C1 to F1 rem F2
+*** same as divide #3, but jumps conform to barrel limitations
+zero F1, F2, A1, A2, B1, B2, CTR // 2 results, 3 temps, 1 counter, carriages F1,F2
+   A1=1; C2 -> add F2
+phase1: // adder=A1, divisor=C1, dividend=F2
+   C1 -> sub F2, add C2; A1 -> add A2; if (F2 >= 0) goto phase1a; else goto phase2
+phase1a:
+   C2 -> add F2, shl (using F1 pinions!) add C1; A2 -> shl add A1; ++CTR; goto phase1; // restore dividend, shift divisor and adder
+phase2: // adder=A2, divisor=C2, dividend-divisor in F2
+   C2 -> add F2, add C1;  A2 -> add B1; // restore dividend in F2, divisor to C1, adder to B1
+loop1: // divisor=C1, adder=B1
+   C1 -> sub F2, add C2; B1 -> add F1, add B2; if (F2< 0) goto shift2; else goto loop2 // do subtraction, add to quotient
+stop: goto done;
+shift1: // divisor in C1, adder in B1
+   C1 -> add F2, shr add C2; B1 -> sub F1, shr add B2; --CTR; if (CTR >=0) goto loop2; else goto done // do restores and shifts
+loop1b: // divisor=C1, adder=B1
+  C1 -> sub F2, add C2; B1 -> add F1, add B2; if (F2< 0) goto shift2; else goto loop2
+shift2: // divisor in C2, adder in B2
+  C2 -> add F2, shr add C1; B2 -> sub F1, shr add B1; -- CTR; if (CTR <0) goto stop; else goto loop1;// do restores and shifts
+loop2: // divisor=C2, adder=B2
+   C2 -> sub F2, add C1; B2 -> add F1, add B1; if (F2 >=0) goto loop1b;  else goto shift1;
+done:'''
+divpgm = program("divide program", studnames) #create and assemble the program
+divpgm.vertical(              ZERO_F1, ZERO_F2, ZERO_A1, ZERO_A2, ZERO_B1, ZERO_B2, ZERO_CTR)
+divpgm.vertical(              INCR_F1)
+divpgm.vertical(              F1_ADD_B1)
+divpgm.vertical(              B1_ADD_A1, C2_ADD_F2)
+divpgm.vertical("phase1",     C1_SUB_F2, C1_ADD_C2, A1_ADD_A2, IF_NORUNUP_F2, "phase1a")
+divpgm.vertical("phase1a",    C2_ADD_F2, C2_SHL_ADD_C1_left, A2_SHL_ADD_A1, PLUS1CTR, "phase1")
+divpgm.vertical("phase2",     C2_ADD_F2, C2_ADD_C1_right, A2_ADD_B1)
+divpgm.vertical("loop1",      C1_SUB_F2, C1_ADD_C2, B1_ADD_F1, B1_ADD_B2, IF_RUNUP_F2, "shift2")
+divpgm.vertical("stop",       STOP)
+divpgm.vertical("shift1",     C1_ADD_F2, C1_SHR_ADD_C2, B1_SUB_F1, B1_SHR_ADD_B2, MINUS1CTR, IF_NORUNUP_CTR, "loop2")
+divpgm.vertical("loop1b",     C1_SUB_F2, C1_ADD_C2, B1_ADD_F1, B1_ADD_B2, IF_RUNUP_F2, "shift2" )
+divpgm.vertical("shift2",     C2_ADD_F2, C2_SHR_ADD_C1, B2_SUB_F1, B2_SHR_ADD_B1, MINUS1CTR, IF_RUNUP_CTR, "stop")
+divpgm.vertical("loop2",      C2_SUB_F2, C2_ADD_C1_right, B2_ADD_F1, B2_ADD_B1, IF_NORUNUP_F2, "loop1b")
+divpgm.vertical("done",       STOP)
+divpgm.end_program()
+divpgm.disassemble()
+divpgm.showverticals()
+BARDIV = Barrel("BARDIV", divpgm) #create a barrel with that program on it

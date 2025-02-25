@@ -180,10 +180,14 @@ class program: #a program for one barrel
                   jumpstuds = self.goto(arg) #generate the jump studs
                   for stud in jumpstuds: studnumlist.append(stud) #and add them to our vertical
                else: self.label(arg)  #it is a label definition
-            else: 
-                studnumlist.append(arg.studnum) #add this stud's number to the vertical
-                if arg.can_skip: #if this stud can cause a skip
-                    self.skip_verticals.append(len(self.verticals)) #note that this vertical can skip
+            else: #stud, or list of studs
+                if (type(arg) != set):
+                    arg = {arg} #convert stud to a set
+                for stud in arg:
+                    if not stud.studnum in studnumlist: #ignore attempts to add duplicates
+                        studnumlist.append(stud.studnum) #add this stud's number to the vertical
+                        if stud.can_skip: #if this stud can cause a skip
+                            self.skip_verticals.append(len(self.verticals)) #note that this vertical can skip
         self.verticals.append(studnumlist) #add our list of stud numbers as a new vertical for this barrel program
     
     def end_program(self): #do post-processing of the program
@@ -198,14 +202,17 @@ class program: #a program for one barrel
              #Add stud.OFF studs for any not specified.
              #(This will need to change if we implement no studs to mean "same as before".)
              for studnum in range(0, len(self.studnames), 2):
+                if studnum == 114:
+                    pass
                 if not studnum in vert and not studnum+1 in vert: #neither OR nor OFF specified
                     self.verticals[vertnum].append(studnum+STUDOFF)
              self.verticals[vertnum] = sorted(self.verticals[vertnum]) #finally, sort by stud number
     
     def disassemble(self): #disassemble a barrel program
        print(f"\n------ disassembly of {self.name} ------")
-       maxstudwidth = 55
-       namewidth = 1 + max(len(labname) for labname in self.labels)
+       maxstudwidth = 80
+       namewidth = 1
+       if self.labels: namewidth +=  max(len(labname) for labname in self.labels)
        print(f'{"label   vert":>{namewidth+5}}{"      studs":{maxstudwidth}}--> jumps to')
        for vertnum in range(len(self.verticals)):
           vert = self.verticals[vertnum]
@@ -218,9 +225,13 @@ class program: #a program for one barrel
           for stud in vert: #show any "on" studs other than moves
             if stud >= studnum_moves and stud%2 == STUDON: 
                 if did_one > 0: print(", ", end="")
+                if studwidth > maxstudwidth-14: # too long: break to another line
+                    print() 
+                    print(f"{' ':>{namewidth+6}}", end="")
+                    studwidth = 0
                 print(f"{self.studnames[stud]}", end="")
-                studwidth += len(self.studnames[stud]) + 2
                 did_one = True
+                studwidth += len(self.studnames[stud]) + 2
           #recreate the jump instruction if it's not an unconditional move to the next instruction
           if vert[0:studnum_moves//2] != [MOVE1, MOVE2+STUDOFF, MOVE4+STUDOFF, MOVEBACK+STUDOFF] or vertnum in self.skip_verticals:
               distance = 1*(vert[0]==MOVE1)+2*(vert[1]==MOVE2)+4*(vert[2]==MOVE4)
@@ -229,9 +240,17 @@ class program: #a program for one barrel
               targetname=str(target)
               for name, lab in self.labels.items():
                   if lab.vndx == target: targetname=name
-              if vertnum in self.skip_verticals: #note if this could be a skip
+              if vertnum in self.skip_verticals: #show both destinations if this could be a skip
                    targetname += " or "+targetname
-                   targetname += "+1" if MOVEBACK+STUDOFF in vert else "-1"
+                   if MOVEBACK+STUDOFF in vert:
+                       targetname += "+1"
+                       target += 1
+                   else:
+                        targetname += "-1"
+                        target -= 1
+                   for name, lab in self.labels.items():
+                       if lab.vndx == target: 
+                           targetname += " (" + name + ")"
               if studwidth < maxstudwidth: #space out to the jump area
                   print(f'{" ":{maxstudwidth-studwidth}}', end="")
               print(f" --> {targetname}", end="")
@@ -240,15 +259,19 @@ class program: #a program for one barrel
     def showverticals(self): #show the verticals as they are arranged on the barrel
         print(f"\n------  layout of studs on the {self.name} barrel ------")
         namewidth = 1 + max(len(self.studnames[studnum]) for studnum in range(len(self.studnames)))
-        print(f'{"stud":{namewidth+10}}', end="")
+        print(f'{"stud":{namewidth+11}}', end="")
         for vert in range(len(self.verticals)):
             print(f"{vert:5}", end="")
         print()
         for studnum in range(len(self.studnames)-1, -1, -1):
-            print(f"{studnum:2} {self.studnames[studnum] if studnum%2==STUDOFF else ' '*namewidth:>{namewidth}} ", end="")
+            used = False
+            print(f"{studnum:3} {self.studnames[studnum] if studnum%2==STUDOFF else ' '*namewidth:>{namewidth}} ", end="")
             print(f'{" ON " if studnum%2==STUDON else " OFF"} ___', end="")
             for vert in range(len(self.verticals)):
-                print(f'{"__*__" if self.verticals[vert][studnum//2] == studnum+STUDON else "_____"}', end="")
+                stud_present = self.verticals[vert][studnum//2] == studnum+STUDON
+                print(f'{"__*__" if stud_present else "_____"}', end="")
+                used |= stud_present
+            if studnum%2==STUDON and not used: print("unused", end="")
             print()
        
 def jmpgen(n:int, here:int): #generate the stud ON list for a jump of n positions forward or backwards
