@@ -1,3 +1,8 @@
+25 Feb 2025
+The component simulator now models all the individual gears of digit wheel and pinions, and how they mesh.
+It implements microprogram "barrels" that encode programs for both multiplication and division,
+using a slightly simplified version of Babbage's Plan 27 layout. It actually computes correct results!
+
 A component-level simulator for the small Babbage Analytical Engine
 -------------------------------------------------------------------
 
