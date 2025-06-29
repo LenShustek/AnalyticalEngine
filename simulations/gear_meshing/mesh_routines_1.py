@@ -182,7 +182,7 @@ def verify_gear_tooth_alignment_angular(axle_positions, teeth_counts, DPin, DPou
         exit(0)
     else: 
         message = (f"the angular discrepancy is {angular_discrepancy_degrees:.4f} degrees, or "
-                   f"{angular_discrepancy_pitches_normalized:.4f} tooth pitches. ")
+                   f"{angular_discrepancy_pitches_normalized:.4f} tooth pitches ")
                       
     return True, message, angular_discrepancy_degrees, angular_discrepancy_pitches_normalized, [r*180.0/math.pi for r in current_gear_angles]
 

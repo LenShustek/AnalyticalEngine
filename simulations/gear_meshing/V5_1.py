@@ -17,15 +17,15 @@ import math, copy
 from mesh_routines_1 import *
 
 def show_results(name, bestpos, startingpos, teeth, DP_in, DP_out, initial_angle=None):
-    print(F"**** results for {name} loop with intial angle {initial_angle}")
+    print(F"for {name} loop with initial tooth angle of {initial_angle:.4f} from the horizontal")
     print(bestpos)
     diffs = [(t1[0]-t2[0], t1[1]-t2[1]) for t1, t2 in zip(bestpos, startingpos)]
-    print("coordinate changes:", [f"{x[0]:.4f}, {x[1]:.4f}" for x in diffs])
+    print("coordinate changes are", [f"{x[0]:.4f}, {x[1]:.4f}" for x in diffs])
     answer, message, discrep, pitch_discrep, angles = verify_gear_tooth_alignment_angular(bestpos, teeth, DP_in, DP_out, initial_angle=initial_angle, verbose=False)
     print(message)
     return angles
 
-Plan27 = False
+Plan27 = True
 
 if Plan27: #Babbage's Plan 27 gears from drawing A/093
     names1 = ["''A", "''J", "''L", "''S", "''G"]  #left gear loop
@@ -56,7 +56,8 @@ else: #my prototype version 5 gears
     DP_in2 = [5, 8, 8, 8, 8]
     DP_out2= [8, 8, 8, 8, 5]
 
-print(f"\nfor these starting coordinates of left loop with starting angle of {A_angle} degrees\n{startingpos1}")
+print("\n")
+print(f"\n\nfor these starting coordinates of left loop with starting angle of {A_angle} degrees for {names1[0]}\n{startingpos1}")
 answer, message, discrep, pitch_discrep, angles1 = verify_gear_tooth_alignment_angular(startingpos1, teeth1, DP_in1, DP_out1, initial_angle=A_angle)
 print(message)
 print(f"and for these starting coordinates of the right loop\n{startingpos2}")
@@ -73,10 +74,10 @@ while angle < 360.0/teeth1[0]:  #find the best possible angle position for a mes
         bestangle = angle
     angle += .01
     tries += 1
-print(f"\nafter {tries} tries, the best starting angle is {bestangle:4f}")
+print(f"\nafter {tries} tries, the best left loop starting angle for {names1[0]} is {bestangle:4f} degrees from the horizontal")
 answer, message, discrep, pitch_discrep, angles1 = verify_gear_tooth_alignment_angular(startingpos1, teeth1, DP_in1, DP_out1, initial_angle=bestangle)
 print(message)
-print("which for the right loop means:")
+print("which for the right loop means")
 answer, message, discrep, pitch_discrep, angles2 = verify_gear_tooth_alignment_angular(startingpos2, teeth2, DP_in2, DP_out2, initial_angle=angles1[2])
 print(message)
 A_angle = bestangle #use the discovered angle as the starting angle from now on
@@ -124,7 +125,7 @@ while tweaking P12y:
                         analyze loop 2, and if the discrepancy is less than .01 degrees:
                             remember these coordinates if the maximum coordinate displacement is the minimum so far
 '''
-print("\nstarting coordinate search...")
+print("\nstarting coordinate search for meshing both loops...")
 P12yp = P12y - incr*steps/2
 for P12step in range(steps):
     P12yp += incr
@@ -195,14 +196,15 @@ for P12step in range(steps):
                             print(axlepos1)
                             print(axlepos2)
                             debug = 0
-print(f"\nafter {ntries} tries which found {ngood} solutions, the best axle locations with a {best:.4f} inch max coordinate change are")
+print(f"\nafter {steps**5} possible combinations of which {ntries} were feasible, there were {ngood} acceptable solutions")
+print(f"the best axle locations, with a {best:.4f} inch maximum coordinate change, are")
 angles1 = show_results("left", bestpos1, startingpos1, teeth1, DP_in1, DP_out1, initial_angle=A_angle)
 angles2 = show_results("right", bestpos2, startingpos2, teeth2, DP_in2, DP_out2, initial_angle=angles1[2])
 
-print("\nleft loop coordinates")
+print("\nleft loop coordinates for cut-and-paste")
 for i in range(5):
     print(f"{names1[i]}: {bestpos1[i][0]:11.6f},  {bestpos1[i][1]:11.6f}")
-print("right loop coordinates")
+print("right loop coordinates for cut-and-paste")
 for i in range(5):
     print(f"{names2[i]}: {bestpos2[i][0]:11.6f},  {bestpos2[i][1]:11.6f}")
  
