@@ -1,0 +1,275 @@
+' Export or import the center points of circles identified with notes.
+' The sketch should be open for editing.
+' This version uses the "moveorcopy" method for importing, so it retains
+' the relations with the assembly that the sketch is in!
+' L. Shustek, July 2025
+
+Dim exporting As Boolean
+
+Const PointClose As Double = 0.5  'inches for a point to be close to a note
+Const TOLERANCE As Double = 0.000001
+Const OutPathname As String = "c:\temp\outpoints.txt" 'format: [namex,namey] = [xx, yy]
+Const InPathname As String = "c:\temp\inpoints.txt" 'format: xx yy newxx newyy
+
+Option Explicit
+    Dim swApp As SldWorks.SldWorks
+
+Sub Main()
+    Dim swModel As SldWorks.ModelDoc2
+    Dim swModelDocExt As SldWorks.ModelDocExtension
+    Dim swAnnotation As SldWorks.Annotation
+    Dim swNote As SldWorks.Note
+    Dim vAnnotations As Variant
+    Dim i As Long
+    Dim j As Long
+    Dim lAnnotationType As Long
+    Dim textpoint As Variant
+    Dim textcoords(2) As Double
+    Dim xnew As Double
+    Dim ynew As Double
+           
+    If MsgBox("export point coordinates?", vbYesNo + vbQuestion) = vbYes Then
+        exporting = True
+    Else
+        If MsgBox("import point coordinates?", vbYesNo + vbQuestion) = vbYes Then
+            exporting = False
+        Else
+            MsgBox "Ok, exiting", vbExclamation, "Nothing to do"
+            Exit Sub
+        End If
+    End If
+    
+    Dim swSketchMgr As SldWorks.SketchManager
+    Dim swSketch As SldWorks.sketch
+    Set swApp = Application.SldWorks
+    Set swModel = swApp.ActiveDoc
+    If swModel Is Nothing Then
+        MsgBox "No SolidWorks document is open.", vbExclamation, "No Document Open"
+        Exit Sub
+    End If
+    Set swSketchMgr = swModel.SketchManager
+    Set swSketch = swSketchMgr.ActiveSketch
+    If swSketch Is Nothing Then
+        MsgBox "No active sketch found. Please activate a sketch (enter edit sketch mode) before running this macro.", vbExclamation, "No Active Sketch"
+        Exit Sub
+    End If
+    Debug.Print "Active Sketch: " & swSketch.name
+    
+    Set swApp = Application.SldWorks
+    Set swModel = swApp.ActiveDoc
+    If swModel Is Nothing Then
+        MsgBox "No SolidWorks document is open.", vbExclamation
+        Exit Sub
+    End If
+    
+    Dim vPts As Variant 'get all the points in the selected sketch
+    vPts = ExtractPoints(swModel, swSketch, True, True)
+    For i = 0 To UBound(vPts)
+        Debug.Print vPts(i)(0) & ", " & vPts(i)(1)
+    Next
+    
+    Set swModelDocExt = swModel.Extension
+    vAnnotations = swModelDocExt.GetAnnotations
+    If IsEmpty(vAnnotations) Then
+        Debug.Print "No annotations found in this document."
+        MsgBox "No annotations found in this document.", vbInformation
+        Exit Sub
+    End If
+
+    Dim filenum As Integer 'open a text file for writing
+    filenum = FreeFile
+    If exporting Then
+        Open OutPathname For Output As #filenum
+    End If
+    
+    Debug.Print "--- Notes in Document: " & swModel.GetTitle & " ---"
+    For i = 0 To UBound(vAnnotations)
+        Set swAnnotation = vAnnotations(i)
+        lAnnotationType = swAnnotation.GetType
+        ' Check if the annotation is a Note (swAnnotationType_e.swAnnotationType_Note has a value of 6)
+        ' Using the direct integer value 6 to avoid potential reference issues with the enumeration
+        If lAnnotationType = 6 Then ' This is the type for a Note annotation
+            ' Correctly cast the generic Annotation object to a specific Note object
+            Set swNote = swAnnotation.GetSpecificAnnotation
+            If Not swNote Is Nothing Then
+                textpoint = swNote.GetTextPoint2()
+                textcoords(0) = textpoint(0)
+                textcoords(1) = textpoint(1)
+                textcoords(2) = textpoint(2)
+                Dim vNote As Variant
+                vNote = textcoords
+                vNote = ConvertPointLocation(vNote, swSketch.ModelToSketchTransform.Inverse())
+                vNote = ConvertToUserUnits(vNote, swModel)
+                Debug.Print "Note Found: """ & swNote.GetText & """" & ", " & vNote(0) & ", " & vNote(1) & ", " & vNote(2)
+                If Not IsNumeric(Left(swNote.GetText, 1)) Then 'ignore dimensions that are close to points
+                    For j = 0 To UBound(vPts)
+                        If Distance2D(vPts(j), vNote) < PointClose Then 'found name of a point
+                            Debug.Print "  close point: " & vPts(j)(0) & "," & vPts(j)(1)
+                            If exporting Then
+                                Print #filenum, "[" & swNote.GetText & "x, " & swNote.GetText & "y] = [" & vPts(j)(0) & ", " & vPts(j)(1) & "]"
+                            End If
+                        End If
+                    Next j
+                End If
+            End If
+        End If
+    Next i
+    Debug.Print "--- End of Notes ---"
+    
+    If Not exporting Then 'import changed points
+        Open InPathname For Input As #filenum
+        Dim pointname As String
+        Dim xcoord As Double
+        Dim ycoord As Double
+        Do While Not EOF(filenum)
+            Input #filenum, xcoord, ycoord, xnew, ynew, pointname
+            'Debug.Print "change request from ", xcoord, ycoord, " to ", xnew, ynew
+            If ChangeCircleCenter(swModel, swSketchMgr, swSketch, xcoord, ycoord, xnew, ynew, pointname) Then
+               'Debug.Print "changed"
+            End If
+        Loop
+        swModel.EditRebuild3 'rebuild model to reflect changes
+        Debug.Print "model rebuilt"
+    End If
+    
+    Close #filenum
+    MsgBox "Done.", vbInformation
+End Sub
+
+Function ExtractPoints(model As SldWorks.ModelDoc2, sketch As SldWorks.sketch, convertCoordsToModelSpace As Boolean, convertCoordsToUserUnits As Boolean) As Variant
+    Dim vSkPts As Variant
+    vSkPts = sketch.GetSketchPoints2()
+    Dim i As Integer
+    If IsEmpty(vSkPts) Then
+        Err.Raise vbError, "", "Sketch contains no points"
+    End If
+    Debug.Print "# of points: " & UBound(vSkPts)
+    Dim vPts() As Variant
+    ReDim vPts(UBound(vSkPts))
+    For i = 0 To UBound(vSkPts)
+        Dim swSkPt As SldWorks.SketchPoint
+        Set swSkPt = vSkPts(i)
+        Dim dPt(2) As Double
+        dPt(0) = swSkPt.X: dPt(1) = swSkPt.Y: dPt(2) = swSkPt.Z
+        Dim vPt As Variant
+        vPt = dPt
+        If convertCoordsToModelSpace Then
+            vPt = ConvertPointLocation(vPt, sketch.ModelToSketchTransform.Inverse())
+        End If
+        If convertCoordsToUserUnits Then
+            vPt = ConvertToUserUnits(vPt, model)
+        End If
+        vPts(i) = vPt
+    Next
+    ExtractPoints = vPts
+End Function
+
+Function ConvertPointLocation(pt As Variant, transform As SldWorks.MathTransform) As Variant
+    Dim swMathUtils As SldWorks.MathUtility
+    Set swMathUtils = swApp.GetMathUtility
+    Dim swMathPt As SldWorks.MathPoint
+    Set swMathPt = swMathUtils.CreatePoint(pt)
+    Set swMathPt = swMathPt.MultiplyTransform(transform)
+    ConvertPointLocation = swMathPt.ArrayData
+End Function
+
+Function ConvertToUserUnits(pt As Variant, model As SldWorks.ModelDoc2) As Variant
+    Dim swUserUnits As SldWorks.UserUnit
+    Set swUserUnits = model.GetUserUnit(swUserUnitsType_e.swLengthUnit)
+    Dim convFactor As Double
+    convFactor = swUserUnits.GetConversionFactor
+    Dim dPt(2) As Double
+    dPt(0) = pt(0) * convFactor
+    dPt(1) = pt(1) * convFactor
+    dPt(2) = pt(2) * convFactor
+    ConvertToUserUnits = dPt
+End Function
+
+Function ConvertToModelUnits(pt As Variant, model As SldWorks.ModelDoc2) As Variant
+    Dim swUserUnits As SldWorks.UserUnit
+    Set swUserUnits = model.GetUserUnit(swUserUnitsType_e.swLengthUnit)
+    Dim convFactor As Double
+    convFactor = swUserUnits.GetConversionFactor
+    Dim dPt(2) As Double
+    dPt(0) = pt(0) / convFactor
+    dPt(1) = pt(1) / convFactor
+    dPt(2) = pt(2) / convFactor
+    ConvertToModelUnits = dPt
+End Function
+
+Function Distance2D(pt1 As Variant, pt2 As Variant) As Double
+    Distance2D = Sqr((pt1(0) - pt2(0)) ^ 2 + (pt1(1) - pt2(1)) ^ 2)
+End Function
+
+Function ChangeCircleCenter(swModel As SldWorks.ModelDoc2, swSketchMgr As SldWorks.SketchManager, swSketch As SldWorks.sketch, oldX As Double, oldY As Double, dNewX As Double, dNewY As Double, name As String) As Boolean
+    Debug.Print "changing ", name, oldX, oldY, " to ", dNewX, dNewY
+    If oldX = dNewX And oldY = dNewY Then
+        Debug.Print "   ignored: unchanged"
+    Else
+        Dim vSketchSegments As Variant
+        Dim swSketchSegment As SldWorks.SketchSegment
+        Dim swSketchArc As SldWorks.SketchArc
+        Dim swMathUtil As SldWorks.MathUtility
+        Dim swMathPoint As SldWorks.MathPoint
+        Dim bCircleFound As Boolean
+        Dim bret As Boolean
+        Dim i As Long
+        Dim oldpt(2) As Double
+        oldpt(0) = oldX
+        oldpt(1) = oldY
+        oldpt(2) = 0
+        Dim oldptc As Variant
+        oldptc = ConvertToModelUnits(oldpt, swModel)
+        Dim newpt(2) As Double
+        newpt(0) = dNewX
+        newpt(1) = dNewY
+        newpt(2) = 0
+        Dim newptc As Variant
+        newptc = ConvertToModelUnits(newpt, swModel)
+        'Debug.Print " model coords: ", oldptc(0), oldptc(1), oldptc(2), newptc(0), newptc(1), newptc(2)
+        vSketchSegments = swSketch.GetSketchSegments 'Get all sketch segments
+        If IsEmpty(vSketchSegments) Then
+            MsgBox "No sketch segments found in the active sketch.", vbExclamation, "No Sketch Segments"
+            Exit Function
+        End If
+        bCircleFound = False
+        Set swMathUtil = swApp.GetMathUtility ' Initialize MathUtility here
+        For i = 0 To UBound(vSketchSegments) 'look for circles whose center is at the old point
+            Set swSketchSegment = vSketchSegments(i)
+            If TypeOf swSketchSegment Is SldWorks.SketchArc Then
+                Set swSketchArc = swSketchSegment
+                If swSketchArc.IsCircle Then
+                    Dim vCenter As ISketchPoint
+                    Set vCenter = swSketchArc.GetCenterPoint2()
+                    'Debug.Print " circle at ", vCenter.X, vCenter.Y
+                    If Abs(vCenter.X - oldptc(0)) < TOLERANCE And _
+                       Abs(vCenter.Y - oldptc(1)) < TOLERANCE Then
+                        bCircleFound = True
+                          Debug.Print "  found circle at meters ", vCenter.X, vCenter.Y
+                        Dim swModelDocExt As SldWorks.ModelDocExtension
+                        Set swModelDocExt = swModel.Extension
+                        swModel.ClearSelection2 True
+                        'swSketchMgr.AddToDB = True 'avoid grid and entity snapping.
+                        Dim selectstatus As Boolean
+                        selectstatus = swSketchArc.Select4(True, Nothing) 'select it
+                        If Not selectstatus Then
+                          MsgBox "select circle failed"
+                        End If
+                        swModelDocExt.MoveOrCopy False, 1, True, vCenter.X, vCenter.Y, vCenter.Z, newptc(0), newptc(1), vCenter.Z
+                        swModel.ClearSelection2 True 'deselect it
+                        'swSketchMgr.AddToDB = False
+                        swModel.ClearSelection2 True
+                    End If
+                End If
+            End If
+        Next i
+    
+        If Not bCircleFound Then
+            MsgBox "circle " & name & " not found at " & Str(oldX) & ", " & Str(oldY), vbExclamation, "Circle Not Found"
+        End If
+    
+        ' Clear selection (if any was made during the process, though not explicitly required now)
+        swModel.ClearSelection2 True
+    End If
+    ChangeCircleCenter = True
+End Function
