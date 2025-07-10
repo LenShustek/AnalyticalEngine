@@ -1,31 +1,246 @@
 '''
-This is a program to analyze two linked gear train loops and tweak the axle locations
-so that the gears mesh correctly all around both circles. It deals with meshes that
-are made with concentric gears of different diametral pitches, as happens for the
+This is a program to analyze linked gear train loops and tweak the axle locations
+so that the gears mesh correctly all around all loops. It deals with meshes that
+are made with concentric gears of different diametral pitches, like for the
 Analytical Engine Plan 27 long pinions.
 
 Since we don't know how to do this analytically, we combinatorily perturb the axle
 locations consistent with the required axle-to-axle distances, and search the several
-hundred thousand of configurations for ones with an acceptable mesh discrepancy of
-less than .01 degrees. Of those, we pick the one whose largest coordinate change for
-any of the axles is the smallest among all the acceptable configurations.
+hundred thousands of configurations for ones with an acceptable mesh discrepancy of
+less than one degree. Of those, we pick the one whose largest coordinate change for
+any of the axles is the smallest.
 
-Len Shustek, June 2025
+Usage notes:
+    - Make a Solidworks assembly that has a sketch with all 22 gears in in their approximate right positions
+    - Add annotation notes close to the center of each gear with the names:
+      A, P12, FP1, MP1, P11, RP1, P14, B, P13, P22, FP2, MP2, P21, RP2, P24, C, P23, P32, FP3, MP3, P31, RP3
+    - Edit the sketch with the gears
+    - Run the Solidworks macro point_coords to export the labeled points to c:\temp\outpoints.txt
+    - Import that file as assignments in the main program at the bottom of this file
+    - Run this program to solve for the best perturbations of the gear centers
+      If successful in finding a solution, it will write the new coordinates to c:\temp\inpoints.txt
+    - Run the Solidworks macro point_coords and import the new coordinates from c:\temp\inpoints.txt
+    - Save as a new assembly so that you retain the file with the original coordinates. That way you
+      can run this program again starting with them, possibly with changes to the control parameters.
+
+Len Shustek, June 2025,
+7/10/2025: add (and debug) the requirement to have the rack pinions RP (Babbage's O pinions)
+            mesh with the rack
 '''
 
-import math, copy
+import math, copy, time
 from mesh_routines_1 import *
 
 def show_results(name, bestpos, startingpos, teeth, DP_in, DP_out, initial_angle=None):
-    print(F"for {name} loop with initial tooth angle of {initial_angle:.4f} from the horizontal")
-    print(bestpos)
+    print(F"for the {name} loop with initial tooth angle of {initial_angle:.4f} from the horizontal")
+    #print(bestpos)
     diffs = [(t1[0]-t2[0], t1[1]-t2[1]) for t1, t2 in zip(bestpos, startingpos)]
-    print("coordinate changes are", [f"{x[0]:.4f}, {x[1]:.4f}" for x in diffs])
-    answer, message, discrep, pitch_discrep, angles = verify_gear_tooth_alignment_angular(bestpos, teeth, DP_in, DP_out, initial_angle=initial_angle, verbose=False)
+    print("  coordinate changes are", [f"{x[0]:.4f}, {x[1]:.4f}" for x in diffs])
+    message, discrep, pitch_discrep, angles = verify_gear_tooth_alignment_angular(name, bestpos, teeth, DP_in, DP_out, initial_angle=initial_angle, verbose=False)
     print(message)
     return angles
 
-Plan27 = True
+def analyze_loops(group, starting_angle=0.0, bothloops=True, rackgear=False):
+    ''' 
+    This analyzes the two loops of gears in he left, middle, or right groups of the Plan 27 Mill 
+    input for the left loop:  teeth1, startingpos1, DP_in1, DP_out1
+    input for the right loop: teeth2, startingpos2, DP_in2, DP_out2
+    output: bestpos1, bestpos2, angle_RW, angle_MP, angle_RP, RP discrepancies
+    ''' 
+    #global teeth1, startingpos1, DP_in1
+    #global teeth2, startingpos2, DP_in2
+        
+    print(f"\n******* analyzing the {group} group *******\n")
+    print(f"for the starting coordinates of left loop with starting angle of {starting_angle} degrees for the left wheel")
+    message, discrep, pitch_discrep, angles1 = verify_gear_tooth_alignment_angular("left", startingpos1, teeth1, DP_in1, DP_out1, initial_angle=starting_angle)
+    print(message)
+    if bothloops:
+        print(f"and for the starting coordinates of the right loop")
+        message, discrep, pitch_discrep, angles2 = verify_gear_tooth_alignment_angular("right", startingpos2, teeth2, DP_in2, DP_out2, initial_angle=angles1[2])
+        print(message)
+    
+    [[LWx,LWy],[P2x,P2y],[FPx,FPy],[MPx,MPy],[P1x,P1y],[RPx,RPy]] = startingpos1
+    RPxbest = RPx
+    LWtoP2 = math.dist([LWx,LWy],[P2x,P2y])
+    P2toFP = math.dist([P2x,P2y],[FPx,FPy])
+    FPtoMP = math.dist([FPx,FPy],[MPx,MPy])
+    MPtoP1 = math.dist([MPx,MPy],[P1x,P1y])
+    P1toLW = math.dist([P1x,P1y],[LWx,LWy])
+    MPtoRP = math.dist([RPx,RPy],[MPx,MPy]) #required distance from MP to RP -- but RPy must not change because it connects to the rack!
+   
+    if bothloops:
+       [[FPx,FPy],[P4x,P4y],[RWx,RWy],[P3x,P3y],[MPx,MPy]] = startingpos2
+       RWtoP3 = math.dist([P3x,P3y],[RWx,RWy])
+       P3toMP = math.dist([P3x,P3y],[MPx,MPy])
+       FPtoP4 = math.dist([FPx,FPy],[P4x,P4y])
+       P4toRW = math.dist([P4x,P4y],[RWx,RWy])
+    
+    best = 99
+    bestRP = 99
+    worstRP = 0
+    chosenRP = 00
+    RP_discrep = 0
+    delta = .20
+    steps = 50
+    maxdegerr = .5 #maximum allowed meshing error in degrees for other than RP
+    maxRPdegerr = .5  #maximum allowed meshing error in degrees for RP
+    incr = delta/steps
+    [nleftgood, nrightgood] = [0,0]
+    debug=0
+    ''' OUR SEARCH PLAN FOR NEW AXLE POSITIONS FOR ONE PLAN 27 GROUP
+    gear loop 1 is LW to P2 to FP to MP to P1
+    gear loop 2 is FP to P4 to RW to P3 to MP
+    rack gear is MP to RP, then to linear rack
+    while tweaking P2y:
+        compute P2x by distance to LW
+        compute [FPx, FPy] by distance to P2 and MP
+        while tweaking FPx:
+            compute FPy by distance to P2
+            compute [MPx, MPy] by distance to FP and P1
+            while tweaking MPx:
+                compute MPy by distance to FP
+                while tweaking MPy:
+                    compute MPx by distance to FP
+                    compute [P1x, P1y] by distance to MP and LW
+                    compute RPx by distance to MP (RPy never changes!)
+                    analyze loop 1 for final gear discrepancy
+                    if rackgear, include RP discrepancy from 
+                    if the discrepancies are acceptable:
+                        if bothloops:
+                        while tweaking P4y:
+                            compute P4x by distance to FP
+                            compute [RWx, RWy] by distance to P4 and P3
+                            while tweaking P3y:
+                                compute P3x by distance to MP
+                                compute [RWx, RWy] by distance to P4 and P3 
+                                analyze loop 2 for final gear discrepancy
+                                if the discrepancies are acceptable:
+                                    if the maximum coordinate displacement for both loops is the minimum so far
+                                        remember the coordinates for both loops
+                        else #only left loop
+                        if the maximum coordinate displacement for the left loop is the minimum so far
+                            remember the coordinates of the left loop
+    '''
+    print(f'\ndoing coordinate search for meshing {"both loops" if bothloops else "left loop"} of the {group} group...')
+    
+    P2yp = P2y - incr*steps/2
+    for P2step in range(steps):
+        P2yp += incr
+        P2xp = fix_coord(P2x, P2yp, LWx, LWy, LWtoP2)
+        if P2xp is None: continue
+        newpos = set_by_distance([P2xp,P2yp],P2toFP, [MPx,MPy],FPtoMP, [FPx,FPy])
+        if not newpos: continue
+        [FPxp, FPyp] = newpos
+        
+        FPxp = FPxp - incr*steps/2
+        for FPstep in range(steps):
+            FPxp += incr
+            FPyp = fix_coord(FPyp, FPxp, P2yp, P2xp, P2toFP)  
+            if FPyp is None: continue
+            newpos = set_by_distance([FPxp,FPyp],FPtoMP, [P1x,P1y],MPtoP1, [MPx,MPy])
+            if not newpos: continue
+            [MPxp, MPyp] = newpos
+            
+            MPxp = MPxp - incr*steps/2
+            for MPstepx in range(steps):
+                
+                MPyp = MPyp - incr*steps/2
+                for MPstep2 in range(steps):
+                    MPyp += incr
+                    MPxpp = fix_coord(MPxp, MPyp, FPxp, FPyp, FPtoMP)
+                    if MPxpp is None: continue
+                    MPtoFP = math.dist([MPxpp,MPyp],{FPxp,FPyp})
+                    newpos = set_by_distance([MPxpp,MPyp],MPtoP1, [LWx,LWy],P1toLW, [P1x,P1y])
+                    if not newpos: continue
+                    [P1xp, P1yp] = newpos
+                    RPxp = fix_coord(RPx, RPy, MPxpp, MPyp, MPtoRP) #can only change RPx, not RPy, because it meshes with the rack
+                    if RPxp is None: continue
+                    axlepos1 = [[LWx,LWy], [P2xp,P2yp], [FPxp,FPyp], [MPxpp,MPyp], [P1xp,P1yp]]
+                    #print(f"new dist MP to FP was: {newMPtoFP}")
+                    message1, discrep1, pitch_discrep1, angles1 = verify_gear_tooth_alignment_angular("left", axlepos1, teeth1, DP_in1, DP_out1, initial_angle=starting_angle)
+                    if rackgear: #see how out of mesh the rack pinion is with the rack
+                        RP_degrees_per_tooth = 360 / teeth1[llRPndx]
+                        RPtoRP1 = RPxp - RP1xn #distance between RP1 and this RP
+                        RPradius = (teeth1[llRPndx] / DP_out1[llMPndx])/2 #radius of an RP
+                        delta_angle = (RPtoRP1 / RPradius) # needed angular difference in radians
+                        delta_angle = delta_angle * 180.0 / math.pi #needed angular difference in degrees
+                        delta_angle = delta_angle % RP_degrees_per_tooth #as part of a tooth angle
+                        RP1_angle = calculate_meshing_tooth_angle(teeth1[llMPndx], leftbestpos1[llMPndx], teeth1[llRPndx], leftbestpos1[llRPndx], MP1_angle)
+                        RP_required_angle = RP1_angle + delta_angle #the angle we need it to be
+                        RP_required_angle = RP_required_angle % RP_degrees_per_tooth #as part of a tooth angle
+                        RP_angle = calculate_meshing_tooth_angle(teeth1[llMPndx], [MPxpp,MPyp], teeth1[llRPndx], [RPxp,RPy], angles1[llMPndx])
+                        #no! RP_angle += 180.0/teeth1[llRPndx] #offset by a half tooth because a tooth fits a valley?
+                        RP_angle = RP_angle % RP_degrees_per_tooth # as part of a tooth angle
+                        RP_discrep = abs(RP_angle - RP_required_angle)
+                        if RP_discrep > worstRP: worstRP = RP_discrep
+                        if RP_discrep < bestRP: bestRP = RP_discrep
+                    if abs(discrep1) < maxdegerr and (not rackgear or RP_discrep < maxRPdegerr): #left loop is good!
+                        nleftgood += 1
+                        if bothloops:
+                            
+                            P4yp = P4y - incr*steps/2
+                            for P4step in range(steps):
+                                P4yp += incr
+                                P4xp = fix_coord(P4x, P4yp, FPxp, FPyp, FPtoP4)
+                                if P4xp is None: continue
+                                newpos = set_by_distance([P4xp,P4yp], P4toRW, [P3x,P3y], RWtoP3, [RWx,RWy])
+                                if not newpos: continue
+                                if newpos[1] < RWy: continue #if wheel drops, next group is hard/impossible to solve
+                                [RWxp, RWyp] = newpos
+                                
+                                P3yp = P3y - incr*steps/2
+                                for P3step in range(steps):
+                                    P3yp += incr
+                                    P3xp = fix_coord(P3x, P3yp, MPxpp, MPyp, P3toMP)
+                                    if P3xp is None: continue
+                                    newpos = set_by_distance([P4xp,P4yp], P4toRW, [P3xp,P3yp], RWtoP3, [RWxp,RWyp])
+                                    if not newpos: continue
+                                    if newpos[1] < RWy: continue #if wheel drops, next group is hard/impossible to solve
+                                    [RWxp, RWyp] = newpos
+                                    axlepos2 = [[FPxp,FPyp],[P4xp,P4yp],[RWxp,RWyp],[P3xp,P3yp],[MPxpp,MPyp]]
+                                    message2, discrep2, pitch_discrep2, angles2 = verify_gear_tooth_alignment_angular("right", axlepos2, teeth2, DP_in2, DP_out2, initial_angle=angles1[2])
+                                    if abs(discrep2) < maxdegerr:
+                                        nrightgood += 1
+                                        if abs(discrep2) < maxdegerr:  #both loops ok
+                                            maxdiff1 = max(abs(v1-v2) for t1,t2 in zip(axlepos1, startingpos1) for v1,v2 in zip(t1,t2))
+                                            maxdiff2 = max(abs(v1-v2) for t1,t2 in zip(axlepos2, startingpos2) for v1,v2 in zip(t1,t2))
+                                            maxdiff = max(maxdiff1, maxdiff2)
+                                            if maxdiff < best: # keep the smallest maximum displacement of axle centers from the initial position
+                                                best = maxdiff
+                                                bestpos1 = copy.deepcopy(axlepos1)
+                                                bestpos1.append([RPxp,RPy]) #return the rack pinion coordinates as the last one of the left gear loop
+                                                bestpos2 = copy.deepcopy(axlepos2)
+                                                chosenRP = RP_discrep
+                        else: #only left loop
+                            maxdiff = max(abs(v1-v2) for t1,t2 in zip(axlepos1, startingpos1) for v1,v2 in zip(t1,t2))
+                            if maxdiff < best:
+                                best = maxdiff
+                                bestpos1 = copy.deepcopy(axlepos1)
+                                bestpos1.append([RPxp,RPy]) #return the rack pinion coordinates as the last one of the left gear loop
+                                bestpos2 = []
+                                chosenRP = RP_discrep
+                        
+    print(f"after {steps**6 if bothloops else steps**3:,} possible combinations with {nleftgood:,} left good and {nrightgood:,} right good solutions")
+    if best == 99:
+        print("----- no solution!")
+        exit(0)
+    print(f"the best axle locations have a {best:.4f} inch maximum coordinate change")
+    angles1 = show_results("left", bestpos1, startingpos1, teeth1, DP_in1, DP_out1, initial_angle=starting_angle)
+    if bothloops:
+        angles2 = show_results("right", bestpos2, startingpos2, teeth2, DP_in2, DP_out2, initial_angle=angles1[2])
+        return bestpos1, bestpos2, angles2[rlRWndx], angles1[llMPndx], [chosenRP, bestRP, worstRP]
+    else:
+        return bestpos1, bestpos2, None, angles1[llMPndx], [chosenRP, bestRP, worstRP]
+    #end of analyze_loops
+   
+def printpoint(textfile, old:tuple, new:tuple, name:str):
+    string = f"{old[0]:12.8f},{old[1]:12.8f},  {new[0]:12.8f},{new[1]:12.8f},  {name}"
+    print(string)
+    textfile.write(f"{string}\n")
+    return
+
+Plan27 = False
+start_cpu_time = time.process_time()
 
 if Plan27: #Babbage's Plan 27 gears from drawing A/093
     names1 = ["''A", "''J", "''L", "''S", "''G"]  #left gear loop
@@ -41,170 +256,160 @@ if Plan27: #Babbage's Plan 27 gears from drawing A/093
     DP_in2 = [8, 10, 10, 10, 10]
     DP_out2= [10, 10, 10, 10, 8]
     
+    analyze_loops("left")
+    
 else: #my prototype version 5 gears
-    #to avoid letter modifiers we have renamed ''J to P12, ''L to FP1, ''S to MP1, ''G to P11, 'J to P12, 'G to P13, and 'S to B
-    names1 = ["  A", "P12", "FP1", "MP1", "P11"]  #left gear loop
-    teeth1 = [20, 20, 16, 16, 20] #counterclockwise: A, P12, FP1, MP1, P11
-    startingpos1 = [[-12.5673957459426,-1.1977050217781], [-10.5308545605009,-2.64770502177811], [-8.28586012843658,-2.7977050217781], [-8.28586012843658,0.402294978221896], [-10.5308545605009,0.252294978221894]]
-    DP_in1 = [8, 8, 8, 5, 8]
-    DP_out1= [8, 8, 5, 8, 8]
+    #to avoid letter modifiers we have renamed ''J to P12, ''L to FP1, ''S to MP1, ''G to P11, 'J to P12, 'G to P13, 'S to B, and O to RP
+    namesLL = ["  A", "P12", "FP1", "MP1", "P11", "RP1"]  #left gear loop plus rack pinion
+    namesLM = ["  B", "P22", "FP2", "MP2", "P21", "RP2"] 
+    namesLR = ["  C", "P32", "FP3", "MP3", "P31", "RP3"] 
+    llMPndx = 3 #the 4th in the list for the left loop is MP
+    llRPndx = 5 #the 6th in the list for the left loop is RP
+    teeth1 = [20, 20, 16, 16, 20, 20] #counterclockwise: LW, P.2, FP., MP., P.1
+    DP_in1 = [8, 8, 8, 5, 8, 8]
+    DP_out1= [8, 8, 5, 8, 8, 8]
     A_angle = 0.0
 
-    names2 = ["FP1", "P14", "  B", "P13", "MP1"]  #right gear loop, which shares MP1 and FP1 with the first loop
-    teeth2 = [ 16, 20, 20, 20, 16] #counterclockwise: FP1, P14, B, P13, MP1
-    startingpos2 = [[-8.28586012843658,-2.7977050217781], [-6.04086569637222,-2.64770502177811], [-4.00432451093059,-1.19770502177811], [-6.04086569637222,0.252294978221894], [-8.28586012843658,0.402294978221896]]
+    namesRL = ["FP1", "P14", "  B", "P13", "MP1"]  #right gear loop, which shares MP1 and FP1 with the first loop
+    namesRM = ["FP2", "P24", "  C", "P23", "MP2"]
+    rlRWndx = 2 #where the right wheel is in the right gear loop list
+    teeth2 = [16, 20, 20, 20, 16] #counterclockwise: FP., P.4, RW, P.3, MP.
     DP_in2 = [5, 8, 8, 8, 8]
     DP_out2= [8, 8, 8, 8, 5]
-
-print("\n")
-print(f"\n\nfor these starting coordinates of left loop with starting angle of {A_angle} degrees for {names1[0]}\n{startingpos1}")
-answer, message, discrep, pitch_discrep, angles1 = verify_gear_tooth_alignment_angular(startingpos1, teeth1, DP_in1, DP_out1, initial_angle=A_angle)
-print(message)
-print(f"and for these starting coordinates of the right loop\n{startingpos2}")
-answer, message, discrep, pitch_discrep, angles2 = verify_gear_tooth_alignment_angular(startingpos2, teeth2, DP_in2, DP_out2, initial_angle=angles1[2])
-print(message)
-
-angle = 0.0
-best = 999.0
-tries=0
-while angle < 360.0/teeth1[0]:  #find the best possible angle position for a mesh of the left loop
-    answer, message, discrep, pitch_discrep, angles1 = verify_gear_tooth_alignment_angular(startingpos1, teeth1, DP_in1, DP_out1, initial_angle=angle)
-    if abs(discrep) < best:
-        best = abs(discrep)
-        bestangle = angle
-    angle += .01
-    tries += 1
-print(f"\nafter {tries} tries, the best left loop starting angle for {names1[0]} is {bestangle:4f} degrees from the horizontal")
-answer, message, discrep, pitch_discrep, angles1 = verify_gear_tooth_alignment_angular(startingpos1, teeth1, DP_in1, DP_out1, initial_angle=bestangle)
-print(message)
-print("which for the right loop means")
-answer, message, discrep, pitch_discrep, angles2 = verify_gear_tooth_alignment_angular(startingpos2, teeth2, DP_in2, DP_out2, initial_angle=angles1[2])
-print(message)
-A_angle = bestangle #use the discovered angle as the starting angle from now on
-
-[[Ax,Ay],[P12x,P12y],[FP1x,FP1y],[MP1x,MP1y],[P11x,P11y]] = startingpos1
-[[FP1x,FP1y],[P14x,P14y],[Bx,By],[P13x,P13y],[MP1x,MP1y]] = startingpos2
-
-AtoP12 = math.dist([Ax,Ay],[P12x,P12y])
-P12toFP1 = math.dist([P12x,P12y],[FP1x,FP1y])
-FP1toMP1 = math.dist([FP1x,FP1y],[MP1x,MP1y])
-MP1toP11 = math.dist([MP1x,MP1y],[P11x,P11y])
-P11toA = math.dist([P11x,P11y],[Ax,Ay])
-BtoP13 = math.dist([P13x,P13y],[Bx,By])
-P13toMP1 = math.dist([P13x,P13y],[MP1x,MP1y])
-FP1toP14 = math.dist([FP1x,FP1y],[P14x,P14y])
-P14toB = math.dist([P14x,P14y],[Bx,By])
-
-best = 99
-delta = .1
-steps = 50
-maxdegerr = .01 #maximum allowed meshing error in degrees
-incr = delta/steps
-ntries = 0
-ngood = 0
-debug=0
-''' OUR SEARCH PLAN FOR NEW AXLE POSITIONS
-gear loop 1 is A to P12 to FP1 to MP1 to P11
-gear loop 2 is FP1 to P14 to B to P13 to MP1
-while tweaking P12y:
-    compute P12x by distance to A
-    compute [FP1x, FP1y] by distance to P12 and MP1
-    while tweaking FP1x:
-        compute FP1y by distance to P12
-        compute [MP1x, MP1y] by distance to FP1 and P11
-        while tweaking MP1x:
-            compute MP1y by distance to FP1
-            compute [P11x, P11y] by distance to MP1 and A
-            analyze loop 1, and if the discrepancy is less than .01 degrees:
-                while tweaking P14y:
-                    compute P14x by distance to FP1
-                    compute [Bx, By] by distance to P14 and P13
-                    while tweaking P13y:
-                        compute P13x by distance to MP1
-                        compute [Bx, By] by distance to P14 and P13 
-                        analyze loop 2, and if the discrepancy is less than .01 degrees:
-                            remember these coordinates if the maximum coordinate displacement is the minimum so far
-'''
-print("\nstarting coordinate search for meshing both loops...")
-P12yp = P12y - incr*steps/2
-for P12step in range(steps):
-    P12yp += incr
-    P12xp = fix_coord(P12x, P12yp, Ax, Ay, AtoP12)
-    if P12xp is None: continue
-    newpos = set_by_distance([P12xp,P12yp],P12toFP1, [MP1x,MP1y],FP1toMP1, [FP1x,FP1y])
-    if not newpos: continue
-    [FP1xp, FP1yp] = newpos
-    FP1xp = FP1xp - incr*steps/2
-    for FP1step in range(steps):
-        FP1xp += incr
-        FP1yp = fix_coord(FP1y, FP1xp, P12yp, P12xp, P12toFP1)  
-        if FP1yp is None: continue
-        newpos = set_by_distance([FP1xp,FP1yp],FP1toMP1, [P11x,P11y],MP1toP11, [MP1x,MP1y])
-        if not newpos: continue
-        [MP1xp, MP1yp] = newpos
-        MP1xp = MP1xp - incr*steps/2
-        for MP1step in range(steps):
-            MP1xp += incr
-            MP1yp = fix_coord(MP1y, MP1xp, FP1yp, FP1xp, FP1toMP1)
-            if MP1yp is None: continue
-            newpos = set_by_distance([MP1xp,MP1yp],MP1toP11, [Ax,Ay],P11toA, [P11x,P11y])
-            if not newpos: continue
-            [P11xp, P11yp] = newpos
-            axlepos1 = [[Ax,Ay], [P12xp,P12yp], [FP1xp,FP1yp], [MP1xp,MP1yp], [P11xp,P11yp]]
-            answer1, message1, discrep1, pitch_discrep1, angles1 = verify_gear_tooth_alignment_angular(axlepos1, teeth1, DP_in1, DP_out1, initial_angle=A_angle)
-            if not answer1:
-                print(message1)
-                print(P12step, FP1step, MP1step)
-                exit(0)
-            if abs(discrep1) < maxdegerr: #left loop is good; try to fix right loop
-                P14yp = P14y - incr*steps/2
-                for P14step in range(steps):
-                    P14yp += incr
-                    P14xp = fix_coord(P14x, P14yp, FP1xp, FP1yp, FP1toP14)
-                    if P14xp is None: continue
-                    newpos = set_by_distance([P14xp,P14yp], P14toB, [P13x,P13y], BtoP13, [Bx,By])
-                    if not newpos: continue
-                    [Bxp, Byp] = newpos
-                    P13yp = P13y - incr*steps/2
-                    for P13step in range(steps):
-                        P13yp += incr
-                        P13xp = fix_coord(P13x, P13yp, MP1xp, MP1yp, P13toMP1)
-                        if P13xp is None: continue
-                        newpos = set_by_distance([P14xp,P14yp], P14toB, [P13xp,P13yp], BtoP13, [Bxp,Byp])
-                        if not newpos: continue
-                        [Bxp, Byp] = newpos
-                        axlepos2 = [[FP1xp,FP1yp],[P14xp,P14yp],[Bxp,Byp],[P13xp,P13yp],[MP1xp,MP1yp]]
-                        answer2, message2, discrep2, pitch_discrep2, angles2 = verify_gear_tooth_alignment_angular(axlepos2, teeth2, DP_in2, DP_out2, initial_angle=angles1[2])
-                        if not answer2:
-                            print(message2)
-                            print(P12step, FP1step, MP1step, P14step, P13step)
-                            exit(0)
-                        ntries += 1
-                        if abs(discrep2) < maxdegerr:  #error in degrees is very small
-                            ngood += 1
-                            maxdiff1 = max(abs(v1-v2) for t1,t2 in zip(axlepos1, startingpos1) for v1,v2 in zip(t1,t2))
-                            maxdiff2 = max(abs(v1-v2) for t1,t2 in zip(axlepos2, startingpos2) for v1,v2 in zip(t1,t2))
-                            maxdiff = max(maxdiff1, maxdiff2)
-                            if maxdiff < best: # keep the smallest maximum displacement of axle centers from the initial position
-                                best = maxdiff
-                                bestpos1 = copy.deepcopy(axlepos1)
-                                bestpos2 = copy.deepcopy(axlepos2)
-                        debug += 1
-                        if (debug > 1000000): #reduce for more frequent debugging output
-                            print(P12step, FP1step, MP1step, P14step, P13step)
-                            print(f"best: {best}, disrepancies: {discrep1}, {discrep2}")
-                            print(axlepos1)
-                            print(axlepos2)
-                            debug = 0
-print(f"\nafter {steps**5} possible combinations of which {ntries} were feasible, there were {ngood} acceptable solutions")
-print(f"the best axle locations, with a {best:.4f} inch maximum coordinate change, are")
-angles1 = show_results("left", bestpos1, startingpos1, teeth1, DP_in1, DP_out1, initial_angle=A_angle)
-angles2 = show_results("right", bestpos2, startingpos2, teeth2, DP_in2, DP_out2, initial_angle=angles1[2])
-
-print("\nleft loop coordinates for cut-and-paste")
-for i in range(5):
-    print(f"{names1[i]}: {bestpos1[i][0]:11.6f},  {bestpos1[i][1]:11.6f}")
-print("right loop coordinates for cut-and-paste")
-for i in range(5):
-    print(f"{names2[i]}: {bestpos2[i][0]:11.6f},  {bestpos2[i][1]:11.6f}")
+    
+    #the assignments below are automatically generated by the Solidworks point_coords macro
+    #from the sketch that shows the initial desied positions of all 22 gears
+    if False: #From "gear plan DP8.SLDPRt"
+        [Cx, Cy] = [4.56137280075403, -1.15749417454103]
+        [Bx, By] = [-4.00169843425797, -1.15749417454103]
+        [Ax, Ay] = [-12.56476966927, -1.15749417454102]
+        [P11x, P11y] = [-10.5282284838283, 0.292505825458975]
+        [P13x, P13y] = [-6.0382396196996, 0.292505825458975]
+        [P14x, P14y] = [-6.0382396196996, -2.60749417454102]
+        [P12x, P12y] = [-10.5282284838283, -2.60749417454102]
+        [MP2x, MP2y] = [0.279837183248026, 0.442505825458974]
+        [MP3x, MP3y] = [8.84290841826002, 0.442505825458978]
+        [P21x, P21y] = [-1.96515724881634, 0.292505825458974]
+        [P22x, P22y] = [-1.96515724881634, -2.60749417454103]
+        [P23x, P23y] = [2.52483161531239, 0.292505825458974]
+        [P24x, P24y] = [2.52483161531239, -2.60749417454103]
+        [P31x, P31y] = [6.59791398619566, 0.292505825458974]
+        [P32x, P32y] = [6.59791398619566, -2.60749417454103]
+        [RP1x, RP1y] = [-8.28323405176396, 2.69250582545898]
+        [RP2x, RP2y] = [0.279837183248026, 2.69250582545898]
+        [RP3x, RP3y] = [8.84290841826002, 2.69250582545898]
+        [FP1x, FP1y] = [-8.28323405176396, -2.75749417454102]
+        [FP2x, FP2y] = [0.279837183248026, -2.75749417454103]
+        [FP3x, FP3y] = [8.84290841826002, -2.75749417454103]
+        [MP1x, MP1y] = [-8.28323405176396, 0.442505825458976]
+    if True: #From sketch 3 of "gear mesh study 1.SLDASM"
+        [P32x, P32y] = [6.44277449, -2.46403619]
+        [FP3x, FP3y] = [8.68957872, -2.58391412]
+        [MP3x, MP3y] = [8.52907872, 0.6120583]
+        [RP3x, RP3y] = [9.38595567, 2.69250583]
+        [P31x, P31y] = [6.28042025, 0.6897442]
+        [Cx, Cy] = [4.42590683, -0.98679388]
+        [P23x, P23y] = [2.24340637, 0.23250583]
+        [P24x, P24y] = [2.53961349, -2.62749417]
+        [MP2x, MP2y] = [0.0124011, 0.52425142]
+        [FP2x, FP2y] = [0.2899047, -2.66369334]
+        [P22x, P22y] = [-1.94741317, -2.4251378]
+        [P21x, P21y] = [-2.23531628, 0.62557543]
+        [Bx, By] = [-4.05811716, -1.08538832]
+        [RP2x, RP2y] = [0.61337767, 2.69250583]
+        [P13x, P13y] = [-6.15199709, 0.28050583]
+        [P14x, P14y] = [-5.97059177, -2.69549417]
+        [P12x, P12y] = [-10.46060713, -2.50749417]
+        [MP1x, MP1y] = [-8.39337477, 0.47729531]
+        [P11x, P11y] = [-10.64309187, 0.44161634]
+        [RP1x, RP1y] = [-7.99923978, 2.69250583]
+        [Ax, Ay] = [-12.56476966927, -1.15749417454102]
+        [FP1x, FP1y] = [-8.2204789, -2.71803049]
  
+# configure left group
+    startingpos1 = [[Ax,Ay],[P12x,P12y],[FP1x,FP1y],[MP1x,MP1y],[P11x,P11y],[RP1x,RP1y]]
+    startingpos2 = [[FP1x,FP1y],[P14x,P14y],[Bx,By],[P13x,P13y],[MP1x,MP1y]]
+    leftbestpos1, leftbestpos2, B_angle, MP1_angle, RPdiscreps = analyze_loops("left")
+    [RP1xn,RP1yn] = leftbestpos1[llRPndx] #note the new position of the first rack pinion
+    while MP1_angle < 0:  
+        MP1_angle += 360 #make it positive
+    
+#configure middle group
+    Bnew = leftbestpos2[rlRWndx] #the new jiggled starting position of B
+    print(f"wheel B moved by delta x {Bnew[0]-Bx:.4f}, delta y {Bnew[1]-By:.4f}")
+    #since B jiggled, jiggle P21 and P22 to be consistent
+    BtoP22 = math.dist([Bx,By],[P22x,P22y]) #required distances
+    BtoP21 = math.dist([Bx,By],[P21x,P21y])
+    P22toFP2 = math.dist([P22x,P22y],[FP2x,FP2y])
+    P21toMP2 = math.dist([P21x,P21y],[MP2x,MP2y])
+    [P22xn,P22yn] = checkdist("P22", set_by_distance(Bnew, BtoP22, [FP2x,FP2y], P22toFP2, [P22x,P22y]))
+    [P21xn,P21yn] = checkdist("P21", set_by_distance(Bnew, BtoP21, [MP2x,MP2y], P21toMP2, [P21x,P21y]))
+
+    startingpos1 = [Bnew,[P22xn,P22yn],[FP2x,FP2y],[MP2x,MP2y],[P21xn,P21yn],[RP2x,RP2y]]
+    startingpos2 = [[FP2x,FP2y],[P24x,P24y],[Cx,Cy],[P23x,P23y],[MP2x,MP2y]]
+    midbestpos1, midbestpos2, C_angle, MP2_angle, RPdiscreps = analyze_loops("middle", starting_angle=B_angle, rackgear=True)
+    print(f"the rack pinion angular discrepancy is {RPdiscreps[0]:.3f} degrees. (best was {RPdiscreps[1]:.3f}, worst was {RPdiscreps[2]:.3f})")
+    
+#configure right group
+    Cnew = midbestpos2[rlRWndx]  #the new jiggled starting position of C
+    print(f"wheel C moved by delta x {Cnew[0]-Cx:.4f}, delta y {Cnew[1]-Cy:.4f}")
+    #in order to be able to tweak the right group into consistency, we shift all its gears left or right by the amount that C moved left or right
+    Cdeltax = Cnew[0]-Cx 
+    P31xn = P31x + Cdeltax
+    P32xn = P32x + Cdeltax
+    FP3xn = FP3x + Cdeltax
+    MP3xn = MP3x + Cdeltax
+    RP3xn = RP3x + Cdeltax
+    doright = True
+    if doright:
+        #now try to jiggle P31 and P32 to be consistent
+        CtoP32 = math.dist([Cx,Cy],[P32x,P32y]) #required distances
+        CtoP31 = math.dist([Cx,Cy],[P31x,P31y])
+        P32toFP3 = math.dist([P32x,P32y],[FP3x,FP3y])
+        P31toMP3 = math.dist([P31x,P31y],[MP3x,MP3y])
+        [P32xn,P32yn] = checkdist("P32", set_by_distance(Cnew, CtoP32, [FP3xn,FP3y], P32toFP3, [P32xn,P32y]))
+        [P31xn,P31yn] = checkdist("P31", set_by_distance(Cnew, CtoP31, [MP3xn,MP3y], P31toMP3, [P31xn,P31y]))
+
+        startingpos1 = [Cnew,[P32xn,P32yn],[FP3xn,FP3y],[MP3xn,MP3y],[P31xn,P31yn],[RP3xn,RP3y]]
+        startingpos2 = None
+        RP2toRP3 = math.dist(midbestpos1[5],[RP3xn,RP3y]) #distance from the new position of RP2 to RP3
+        rightbestpos1, rightbestpos2, D_angle, MP3_angle, RPdiscreps = analyze_loops("right", bothloops=False, starting_angle=C_angle, rackgear=True)
+        print(f"the rack pinion angular discrepancy is {RPdiscreps[0]:.3f} degrees. (best was {RPdiscreps[1]:.3f}, worst was {RPdiscreps[2]:.3f})")
+
+    filename = "c:\\temp\\inpoints.txt"
+    print("\nfinal new coordinates:")
+    with open(filename, 'w') as textfile:
+        printpoint(textfile, [Ax,Ay],     leftbestpos1[0],   namesLL[0])  #left group
+        printpoint(textfile, [P12x,P12y], leftbestpos1[1],   namesLL[1])
+        printpoint(textfile, [FP1x,FP1y], leftbestpos1[2],   namesLL[2])
+        printpoint(textfile, [MP1x,MP1y], leftbestpos1[3],   namesLL[3])
+        printpoint(textfile, [P11x,P11y], leftbestpos1[4],   namesLL[4])
+        printpoint(textfile, [RP1x,RP1y],   leftbestpos1[5],   namesLL[5])
+        printpoint(textfile, [P14x,P14y], leftbestpos2[1],   namesRL[1])
+        printpoint(textfile, [Bx,By],     leftbestpos2[2],   namesRL[2])
+        printpoint(textfile, [P13x,P13y], leftbestpos2[3],   namesRL[3])
+        printpoint(textfile, [P22x,P22y], midbestpos1[1],    namesLM[1])  #middle group
+        printpoint(textfile, [FP2x,FP2y], midbestpos1[2],    namesLM[2])
+        printpoint(textfile, [MP2x,MP2y], midbestpos1[3],    namesLM[3])
+        printpoint(textfile, [P21x,P21y], midbestpos1[4],    namesLM[4])
+        printpoint(textfile, [RP2x,RP2y], midbestpos1[5],    namesLM[5])
+        printpoint(textfile, [P24x,P24y], midbestpos2[1],    namesRM[1])
+        printpoint(textfile, [Cx,Cy],     midbestpos2[2],    namesRM[2])
+        printpoint(textfile, [P23x,P23y], midbestpos2[3],    namesRM[3])
+        if doright:
+            printpoint(textfile, [P32x,P32y], rightbestpos1[1],  namesLR[1])  #right group
+            printpoint(textfile, [FP3x,FP3y], rightbestpos1[2],  namesLR[2])
+            printpoint(textfile, [MP3x,MP3y], rightbestpos1[3],  namesLR[3])
+            printpoint(textfile, [P31x,P31y], rightbestpos1[4],  namesLR[4])
+            printpoint(textfile, [RP3x,RP3y], rightbestpos1[5],  namesLR[5])
+        else:
+            printpoint(textfile, [P32x,P32y], [P32xn,P32y],  namesLR[1])  #right group (only shifted)
+            printpoint(textfile, [FP3x,FP3y], [FP3xn,FP2y],  namesLR[2])
+            printpoint(textfile, [MP3x,MP3y], [MP3xn,MP3y],  namesLR[3])
+            printpoint(textfile, [P31x,P31y], [P31xn,P31y],  namesLR[4])
+        print(f"wrote these new coordinates to {filename}")
+
+    #endif my prototype
+        
+print(f"the analysis took {time.process_time()-start_cpu_time:.0f} seconds")   
+

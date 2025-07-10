@@ -11,23 +11,21 @@
    Len Shustek, June 2025
 '''
 import math
-
 epsilon = 1e-8 #floating point fuzz
 
 def normalize_angle(angle_rad):
     """Normalizes an angle to be between -pi and pi."""
     return math.atan2(math.sin(angle_rad), math.cos(angle_rad))
 
-def verify_gear_tooth_alignment_angular(axle_positions, teeth_counts, DPin, DPout, initial_angle=None, verbose=False):
+def verify_gear_tooth_alignment_angular(name:str, axle_positions, teeth_counts, DPin, DPout, initial_angle=None, verbose=False):
     """
     Verifies if teeth of a 5-pinion gear train forming a loop can perfectly align
     with the tooth space of their meshing partners, by explicitly propagating angular positions.
 
     This function assumes:
     1. The distances between axle centers are already correct for perfect pitch circle tangency.
-       (The function performs a check to ensure this).
     2. The centers form a closed 5-sided polygon.
-    3. **Assumption for Reference:** Gear 0's (first gear's) reference tooth (e.g., tooth center)
+    3. Unless otherwise given, gear 0's (first gear's) reference tooth (e.g., tooth center)
        is initially aligned with the line connecting its axle (P0) to the axle of Gear 1 (P1).
 
     Args:
@@ -39,19 +37,20 @@ def verify_gear_tooth_alignment_angular(axle_positions, teeth_counts, DPin, DPou
                                     e.g., [N0, N1, N2, N3, N4]
         DPin (list of float): The diametral pitch for the input of gears
         DPout (list of float): The diametral pitch for the output of gears
-        initial_angle: the optional angle of the first gear's reference tooth from the horizontal in degrees 
+        initial_angle: the optional angle of the first gear's reference tooth counter-clockwise from the horizontal in degrees 
 
     Returns:
-        tuple: (bool, str, float, float, list) - A boolean indicating correct calculation,
+        tuple: (str, float, float, list) - A boolean indicating correct calculation,
                                           a string explaining the result,
                                           the final angular discrepancy in degrees from  horizontal,
                                           the final angular discrepancy in 'tooth pitches'
                                           the list of gear reference tooth angles from the horizontal in degrees
     """
     num_gears = 5
-    if (len(axle_positions) != num_gears or len(teeth_counts) != num_gears or
-        len(DPin) != num_gears or len(DPout) != num_gears):
-        return False, f"Error: Exactly {num_gears} gears are required for this analysis.", 0.0, 0.0, []
+    if (len(axle_positions) < num_gears or len(teeth_counts) < num_gears or
+        len(DPin) < num_gears or len(DPout) < num_gears):
+        print( f"Error: {num_gears} gears are required for {name} analysis.")
+        exit(0)
 
     # Verify geometric consistency of axle distances 
     tolerance_distance = 1e-4 # Tolerance for floating point comparisons of distances
@@ -62,13 +61,14 @@ def verify_gear_tooth_alignment_angular(axle_positions, teeth_counts, DPin, DPou
         measured_distance = math.sqrt((p2_coords[0] - p1_coords[0])**2 + (p2_coords[1] - p1_coords[1])**2)
         expected_distance = (teeth_counts[i]/DPout[i] + teeth_counts[iplus1]/DPin[iplus1])/2
         if abs(measured_distance - expected_distance) > tolerance_distance:
-            print(f"  bad distance delta {measured_distance - expected_distance} from gear {iplus1}")
+            print(f"  bad distance delta {measured_distance - expected_distance} from gear {iplus1} for {name} loop analysis")
             print(f"  points {p1_coords} and {p2_coords}")
             print(f"axle positions: {axle_positions}")
             print(f"tooth counts: {teeth_counts}")
-            return False, (f"Geometric inconsistency: Measured distance between gear {i+1} "
+            print(f"Geometric inconsistency: Measured distance between gear {i+1} "
                             f"and gear {(i+1)%num_gears+1} ({measured_distance:.6f}) "
-                            f"does not match expected ({expected_distance:.6f})."), 0.0, 0.0, []
+                            f"does not match expected ({expected_distance:.6f}).")
+            exit(0)
 
     current_gear_angles = [0.0] * num_gears #the angle from the horizontal of each gear's reference tooth
     p0_coords = axle_positions[0]
@@ -181,10 +181,10 @@ def verify_gear_tooth_alignment_angular(axle_positions, teeth_counts, DPin, DPou
         print(message)
         exit(0)
     else: 
-        message = (f"the angular discrepancy is {angular_discrepancy_degrees:.4f} degrees, or "
+        message = (f"  the angular discrepancy is {angular_discrepancy_degrees:.4f} degrees, or "
                    f"{angular_discrepancy_pitches_normalized:.4f} tooth pitches ")
                       
-    return True, message, angular_discrepancy_degrees, angular_discrepancy_pitches_normalized, [r*180.0/math.pi for r in current_gear_angles]
+    return message, angular_discrepancy_degrees, angular_discrepancy_pitches_normalized, [r*180.0/math.pi for r in current_gear_angles]
 
 def compute_third_point_coordinates(p1: tuple, d1: float, p2: tuple, d2: float, verbose=False) -> list[tuple[float, float]] | None:
     """
@@ -261,7 +261,7 @@ def compute_third_point_coordinates(p1: tuple, d1: float, p2: tuple, d2: float, 
     discriminant = r1*r1 - a*a
     if discriminant < 0:
         # If it's very slightly negative due to floating point, treat as 0
-        if abs(discriminant) < 1e-9: # A small epsilon
+        if abs(discriminant) < epsilon: # A small epsilon
             h = 0.0
         else:
             # Should not happen if previous checks for D > r1+r2 etc. are correct,
@@ -307,17 +307,68 @@ def set_by_distance(p1: tuple, d1: float, p2: tuple, d2: float, old:tuple):
         return solutions[0]
     else:
         return solutions[1]
+    
+def checkdist(name:str, newpos:tuple) -> tuple:
+    if not newpos:
+        print(f"can't find new consistent position for {name}")
+        exit(0)
+    return newpos
 
 def fix_coord (c1:float, d1:float, c2:float, d2:float, dst:float):
     #fix coordinate c1 so that (c1,d1) is dst inches away from (c2,d2)
     #c and d  might be  x and y  or  y and x
     diffsq = dst**2 - (d1-d2)**2
-    if diffsq < -epsilon:
+    if diffsq < -epsilon**2:
         return None #no solution
-    if diffsq < epsilon:
+    if diffsq < 0:
         return c1 #basically no change
     ans1 = c2 + math.sqrt(diffsq)
     ans2 = c2 - math.sqrt(diffsq)
     if abs(ans1-c1) < abs(ans2-c1): #choose the solution with the least change
         return ans1
     return ans2
+
+def calculate_meshing_tooth_angle(
+    NT1: int,        # Number of Teeth on Gear 1
+    PT1: tuple,      #x,y center of gear 1
+    NT2: int,        # Number of Teeth on Gear 2 
+    PT2: tuple,      #x,y center of gear 2
+    A1_degrees: float # Angle of a tooth on Gear 1 relative to horizontal (in degrees counter-clockwise)
+) -> float: #the angle of a tooth on Gear 2 relative to the horizontal (in degrees counter-clockwise)
+   
+    # --- Step 1: Calculate the angle of the line of centers ---
+    # Use math.atan2 to get the angle in radians, covering all four quadrants.
+    # The angle is measured counter-clockwise from the positive X-axis.
+    angle_line_of_centers_radians = math.atan2(PT2[1]-PT1[1], PT2[0]-PT1[0])
+
+    # --- Step 2: Calculate the relative angle of Gear 1's tooth to the line of centers ---
+    # This tells us how far the tooth on Gear 1 is rotated from the line
+    # connecting its center to Gear 2's center.
+    A1_radians = math.radians(A1_degrees)
+    
+    # The angle of Gear 1's tooth relative to the line of centers.
+    # This is the angle from the line_of_centers_direction to the tooth_direction.
+    relative_angle_G1_to_LC_radians = A1_radians - angle_line_of_centers_radians
+    
+    # --- Step 3: Calculate the relative angle of Gear 2's *valley* to the line of centers ---
+    # When gears mesh, they rotate in opposite directions. The angular rotation
+    # is inversely proportional to the number of teeth (gear ratio).
+    # If Gear 1 rotates by 'x' radians relative to the line of centers,
+    # Gear 2 will rotate by '-x * (NT1 / NT2)' radians relative to the line of centers.
+    
+    # The relative angle of Gear 2's tooth to the line of centers.
+    # The negative sign accounts for the opposite direction of rotation.
+    relative_angle_G2_to_LC_radians = -relative_angle_G1_to_LC_radians * (NT1/NT2)
+
+    # --- Step 4: Calculate the absolute angle of Gear 2's tooth relative to horizontal ---
+    # Add the angle of the line of centers back to get the absolute angle.
+    A2_valley_radians = angle_line_of_centers_radians + relative_angle_G2_to_LC_radians
+    A2_valley_degrees = math.degrees(A2_valley_radians)
+    A2_degrees = A2_valley_degrees + 180.0/NT2 #adjust by half a tooth for tooth vs. valley
+
+    # --- Step 5: Normalize the angle to be within 0 to 360 degrees ---
+    # This ensures the output is consistent and easy to interpret.
+    A2_degrees_normalized = A2_degrees % 360
+    if A2_degrees_normalized < 0:
+        A2_degrees_normalized += 360
+    return A2_degrees_normalized

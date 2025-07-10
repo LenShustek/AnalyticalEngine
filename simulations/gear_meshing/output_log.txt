@@ -1,0 +1,76 @@
+
+******* analyzing the left group *******
+
+for the starting coordinates of left loop with starting angle of 0.0 degrees for the left wheel
+  the angular discrepancy is 0.1478 degrees, or 0.0082 tooth pitches
+and for the starting coordinates of the right loop
+  the angular discrepancy is 0.2396 degrees, or 0.0106 tooth pitches
+
+doing coordinate search for meshing both loops of the left group...
+after 15,625,000,000 possible combinations with 83 left good and 2,785 right good solutions
+the best axle locations have a 0.0040 inch maximum coordinate change
+for the left loop with initial tooth angle of 0.0000 from the horizontal
+  coordinate changes are ['0.0000, 0.0000', '0.0000, 0.0000', '-0.0000, -0.0000', '0.0000, -0.0000', '0.0000, -0.0000', '-0.0000, 0.0000']
+  the angular discrepancy is 0.1478 degrees, or 0.0082 tooth pitches
+for the right loop with initial tooth angle of 24.6286 from the horizontal
+  coordinate changes are ['-0.0000, -0.0000', '-0.0000, 0.0040', '0.0002, 0.0037', '0.0003, 0.0040', '0.0000, -0.0000']
+  the angular discrepancy is 0.2405 degrees, or 0.0107 tooth pitches
+wheel B moved by delta x 0.0002, delta y 0.0037
+
+******* analyzing the middle group *******
+
+for the starting coordinates of left loop with starting angle of 98.6586374112805 degrees for the left wheel
+  the angular discrepancy is 1.1957 degrees, or 0.0664 tooth pitches
+and for the starting coordinates of the right loop
+  the angular discrepancy is 1.2727 degrees, or 0.0566 tooth pitches
+
+doing coordinate search for meshing both loops of the middle group...
+after 15,625,000,000 possible combinations with 17 left good and 305 right good solutions
+the best axle locations have a 0.0680 inch maximum coordinate change
+for the left loop with initial tooth angle of 98.6586 from the horizontal
+  coordinate changes are ['0.0000, 0.0000', '0.0175, 0.0280', '0.0104, -0.0300', '0.0464, -0.0271', '0.0454, -0.0497', '-0.0618, 0.0000']
+  the angular discrepancy is 0.2337 degrees, or 0.0130 tooth pitches
+for the right loop with initial tooth angle of 140.1315 from the horizontal
+  coordinate changes are ['0.0104, -0.0300', '0.0067, 0.0680', '0.0615, 0.0028', '0.0468, -0.0240', '0.0464, -0.0271']
+  the angular discrepancy is 0.0392 degrees, or 0.0017 tooth pitches
+the rack pinion angular discrepancy is 0.129 degrees. (best was 0.000, worst was 17.701)
+wheel C moved by delta x 0.0615, delta y 0.0028
+
+******* analyzing the right group *******
+
+for the starting coordinates of left loop with starting angle of -175.92082189597147 degrees for the left wheel
+  the angular discrepancy is 8.5572 degrees, or 0.4754 tooth pitches
+
+doing coordinate search for meshing left loop of the right group...
+after 125,000 possible combinations with 9 left good and 0 right good solutions
+the best axle locations have a 0.1387 inch maximum coordinate change
+for the left loop with initial tooth angle of -175.9208 from the horizontal
+  coordinate changes are ['0.0000, 0.0000', '0.0508, 0.0720', '0.0459, 0.0026', '-0.1387, -0.0120', '-0.1289, 0.1324', '-0.1684, 0.0000']
+  the angular discrepancy is 0.1954 degrees, or 0.0109 tooth pitches
+the rack pinion angular discrepancy is 0.349 degrees. (best was 0.000, worst was 17.835)
+
+final new coordinates:
+-12.56476967, -1.15749417,  -12.56476967, -1.15749417,    A
+-10.46060713, -2.50749417,  -10.46060713, -2.50749417,  P12
+ -8.22047890, -2.71803049,   -8.22047890, -2.71803049,  FP1
+ -8.39337477,  0.47729531,   -8.39337477,  0.47729531,  MP1
+-10.64309187,  0.44161634,  -10.64309187,  0.44161634,  P11
+ -7.99923978,  2.69250583,   -7.99923978,  2.69250583,  RP1
+ -5.97059177, -2.69549417,   -5.97063539, -2.69149417,  P14
+ -4.05811716, -1.08538832,   -4.05794038, -1.08165015,    B
+ -6.15199709,  0.28050583,   -6.15164949,  0.28450583,  P13
+ -1.94741317, -2.42513780,   -1.92945858, -2.39297208,  P22
+  0.28990470, -2.66369334,    0.30035141, -2.69371680,  FP2
+  0.01240110,  0.52425142,    0.05875499,  0.49715004,  MP2
+ -2.23531628,  0.62557543,   -2.18973328,  0.57961510,  P21
+  0.61337767,  2.69250583,    0.55161702,  2.69250583,  RP2
+  2.53961349, -2.62749417,    2.54634436, -2.55949417,  P24
+  4.42590683, -0.98679388,    4.48742371, -0.98399078,    C
+  2.24340637,  0.23250583,    2.29016363,  0.20850583,  P23
+  6.44277449, -2.46403619,    6.55525386, -2.38900982,  P32
+  8.68957872, -2.58391412,    8.79702403, -2.58127652,  FP3
+  8.52907872,  0.61205830,    8.45190270,  0.60005830,  MP3
+  6.28042025,  0.68974420,    6.21315824,  0.82483212,  P31
+  9.38595567,  2.69250583,    9.27904439,  2.69250583,  RP3
+wrote these new coordinates to c:\temp\inpoints.txt
+the analysis took 11 seconds
