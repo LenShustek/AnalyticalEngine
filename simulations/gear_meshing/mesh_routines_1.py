@@ -28,7 +28,7 @@ def verify_gear_tooth_alignment_angular(name:str, axle_positions, teeth_counts, 
     3. Unless otherwise given, gear 0's (first gear's) reference tooth (e.g., tooth center)
        is initially aligned with the line connecting its axle (P0) to the axle of Gear 1 (P1).
 
-    Args:
+    Inputs:
         axle_positions (list of tuples): A list of 5 (x, y) tuples representing the
                                          coordinates of the gear axles.
                                          e.g., [(x0, y0), (x1, y1), (x2, y2), (x3, y3), (x4, y4)]
@@ -39,12 +39,11 @@ def verify_gear_tooth_alignment_angular(name:str, axle_positions, teeth_counts, 
         DPout (list of float): The diametral pitch for the output of gears
         initial_angle: the optional angle of the first gear's reference tooth counter-clockwise from the horizontal in degrees 
 
-    Returns:
-        tuple: (str, float, float, list) - A boolean indicating correct calculation,
-                                          a string explaining the result,
+    Outputs:
+        tuple: (str, float, float, list)  a string explaining the result,
                                           the final angular discrepancy in degrees from  horizontal,
                                           the final angular discrepancy in 'tooth pitches'
-                                          the list of gear reference tooth angles from the horizontal in degrees
+                                          the list of gear reference tooth angles counter-clockwise from the horizontal in degrees
     """
     num_gears = 5
     if (len(axle_positions) < num_gears or len(teeth_counts) < num_gears or
@@ -174,7 +173,7 @@ def verify_gear_tooth_alignment_angular(name:str, axle_positions, teeth_counts, 
     # For very small values, treat as zero
     tolerance_angular_rad = 1e-6
     if abs(abs(angular_discrepancy_rad) - math.pi) < tolerance_angular_rad: # Half-period match (pi rad, or 0.5 pitches)
-        message = (f"A half-pitch misalignment occurs when the loop closes. Total angular discrepancy is {angular_discrepancy_rad:.4f} rad "
+        message = (f"A half-pitch misalignment occured when the loop closes. Total angular discrepancy is {angular_discrepancy_rad:.4f} rad "
                    f"({angular_discrepancy_pitches_normalized:.4f} tooth pitches). "
                    f"This indicates that perfect simultaneous tooth-to-space alignment is impossible for this "
                    f"odd-numbered external gear train (the sum of teeth, {sum(teeth_counts)}, is odd), leading to binding or backlash.")
@@ -329,6 +328,7 @@ def fix_coord (c1:float, d1:float, c2:float, d2:float, dst:float):
     return ans2
 
 def calculate_meshing_tooth_angle(
+    #gear 1 meshes with gear 2. Given the angle of gear 1, what is the angle of gear2?
     NT1: int,        # Number of Teeth on Gear 1
     PT1: tuple,      #x,y center of gear 1
     NT2: int,        # Number of Teeth on Gear 2 

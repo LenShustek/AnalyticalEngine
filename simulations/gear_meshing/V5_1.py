@@ -6,27 +6,38 @@ Analytical Engine Plan 27 long pinions.
 
 Since we don't know how to do this analytically, we combinatorily perturb the axle
 locations consistent with the required axle-to-axle distances, and search the several
-hundred thousands of configurations for ones with an acceptable mesh discrepancy of
-less than one degree. Of those, we pick the one whose largest coordinate change for
-any of the axles is the smallest.
+hundred thousand configurations for ones with an acceptable mesh discrepancy, of
+less than 0.5 degrees. Of those, we pick the one whose largest coordinate change for
+any of the axles (other than the rack pinion) is the smallest.
+
+This also deals with the constraint imposed by pinions that mesh with the Plan 27 rack,
+all of which must mesh simultaneously.
 
 Usage notes:
-    - Make a Solidworks assembly that has a sketch with all 22 gears in in their approximate right positions
-    - Add annotation notes close to the center of each gear with the names:
+    - Make a Solidworks assembly that has a sketch with all 22 gears in in their approximate right positions.
+    - Add annotation notes close to the center of each gear with the axle names:
       A, P12, FP1, MP1, P11, RP1, P14, B, P13, P22, FP2, MP2, P21, RP2, P24, C, P23, P32, FP3, MP3, P31, RP3
-    - Edit the sketch with the gears
-    - Run the Solidworks macro point_coords to export the labeled points to c:\temp\outpoints.txt
-    - Import that file as assignments in the main program at the bottom of this file
-    - Run this program to solve for the best perturbations of the gear centers
-      If successful in finding a solution, it will write the new coordinates to c:\temp\inpoints.txt
-    - Run the Solidworks macro point_coords and import the new coordinates from c:\temp\inpoints.txt
-    - Save as a new assembly so that you retain the file with the original coordinates. That way you
-      can run this program again starting with them, possibly with changes to the control parameters.
+    - Edit the sketch that shows the gear as circles at the contact diameter (#teeth/diametral pitch).
+    - Run the Solidworks macro point_coords and export the labeled points to c:\temp\outpoints.txt.
+      It will do so for any note that is within 0.5" of a point (presumably the center of a gear cirle), 
+      and will use the note as the name of the point, as in "[P32x, P32y] = [6.55525386, -2.38900982]"
+    - Import that file as assignments in the main program at the bottom of this file.
+    - Run this program to solve for the best perturbations of the gear centers.
+      If successful in finding a solution, it will write the new  and the original coordinates
+      to c:\temp\inpoints.txt, as in "6.44277449, -2.46403619,    6.55525386, -2.38900982,  P32"
+      The axle name from the note is just there as a comment.
+    - Run the Solidworks macro point_coords with the original sketch open for editing, and 
+      import the coordinates from c:\temp\inpoints.txt. It will find each of the circles based on
+      the old coordinates of the center, and change the center to be at the new coordinates.
+    - Save it as a new assembly so that you retain the original file with the original coordinates. That way
+      you can run this program again starting with them, possibly with changes to the algorithm parameters.
 
-Len Shustek, June 2025,
-7/10/2025: add (and debug) the requirement to have the rack pinions RP (Babbage's O pinions)
-            mesh with the rack
+Len Shustek, June 2025
+7/8/2025:  add the middle and right groups to complete the Plan 27 Mill layout
+7/10/2025: add (and debug) the requirement to have the rack pinions RP
+           (Babbage's O pinions) mesh with the rack
 '''
+# Angles are (mostly) measured here as counter-clockwise degrees from the horizontal X axis going to the right from the center of the circle
 
 import math, copy, time
 from mesh_routines_1 import *
@@ -104,7 +115,7 @@ def analyze_loops(group, starting_angle=0.0, bothloops=True, rackgear=False):
                     compute [P1x, P1y] by distance to MP and LW
                     compute RPx by distance to MP (RPy never changes!)
                     analyze loop 1 for final gear discrepancy
-                    if rackgear, include RP discrepancy from 
+                    if rackgear, include RP meshing discrepancy
                     if the discrepancies are acceptable:
                         if bothloops:
                         while tweaking P4y:
@@ -158,16 +169,18 @@ def analyze_loops(group, starting_angle=0.0, bothloops=True, rackgear=False):
                     axlepos1 = [[LWx,LWy], [P2xp,P2yp], [FPxp,FPyp], [MPxpp,MPyp], [P1xp,P1yp]]
                     #print(f"new dist MP to FP was: {newMPtoFP}")
                     message1, discrep1, pitch_discrep1, angles1 = verify_gear_tooth_alignment_angular("left", axlepos1, teeth1, DP_in1, DP_out1, initial_angle=starting_angle)
-                    if rackgear: #see how out of mesh the rack pinion is with the rack
+                    if rackgear: #see how out of mesh the rack pinion (RP2 or RP3) is with the rack
                         RP_degrees_per_tooth = 360 / teeth1[llRPndx]
-                        RPtoRP1 = RPxp - RP1xn #distance between RP1 and this RP
+                        RPtoRP1 = RPxp - RP1xn #distance between RP1 and this RP (RP2 or RP3)
                         RPradius = (teeth1[llRPndx] / DP_out1[llMPndx])/2 #radius of an RP
-                        delta_angle = (RPtoRP1 / RPradius) # needed angular difference in radians
+                        delta_angle = (RPtoRP1 / RPradius) # needed angular difference from RP1 to this RP in radians
                         delta_angle = delta_angle * 180.0 / math.pi #needed angular difference in degrees
                         delta_angle = delta_angle % RP_degrees_per_tooth #as part of a tooth angle
+                        #See what angle RP1 is at, based on the angle of MP1
                         RP1_angle = calculate_meshing_tooth_angle(teeth1[llMPndx], leftbestpos1[llMPndx], teeth1[llRPndx], leftbestpos1[llRPndx], MP1_angle)
-                        RP_required_angle = RP1_angle + delta_angle #the angle we need it to be
+                        RP_required_angle = RP1_angle + delta_angle #the angle we need this new RP to be
                         RP_required_angle = RP_required_angle % RP_degrees_per_tooth #as part of a tooth angle
+                        #See what angle this RP is at, based on the angle of its MP
                         RP_angle = calculate_meshing_tooth_angle(teeth1[llMPndx], [MPxpp,MPyp], teeth1[llRPndx], [RPxp,RPy], angles1[llMPndx])
                         #no! RP_angle += 180.0/teeth1[llRPndx] #offset by a half tooth because a tooth fits a valley?
                         RP_angle = RP_angle % RP_degrees_per_tooth # as part of a tooth angle
@@ -202,8 +215,8 @@ def analyze_loops(group, starting_angle=0.0, bothloops=True, rackgear=False):
                                     if abs(discrep2) < maxdegerr:
                                         nrightgood += 1
                                         if abs(discrep2) < maxdegerr:  #both loops ok
-                                            maxdiff1 = max(abs(v1-v2) for t1,t2 in zip(axlepos1, startingpos1) for v1,v2 in zip(t1,t2))
-                                            maxdiff2 = max(abs(v1-v2) for t1,t2 in zip(axlepos2, startingpos2) for v1,v2 in zip(t1,t2))
+                                            maxdiff1 = max(max(abs(v1[0]-v2[0]), abs(v1[1]-v2[1])) for v1,v2 in zip(axlepos1, startingpos1))
+                                            maxdiff2 = max(max(abs(v1[0]-v2[0]), abs(v1[1]-v2[1])) for v1,v2 in zip(axlepos2, startingpos2))
                                             maxdiff = max(maxdiff1, maxdiff2)
                                             if maxdiff < best: # keep the smallest maximum displacement of axle centers from the initial position
                                                 best = maxdiff
@@ -212,19 +225,22 @@ def analyze_loops(group, starting_angle=0.0, bothloops=True, rackgear=False):
                                                 bestpos2 = copy.deepcopy(axlepos2)
                                                 chosenRP = RP_discrep
                         else: #only left loop
-                            maxdiff = max(abs(v1-v2) for t1,t2 in zip(axlepos1, startingpos1) for v1,v2 in zip(t1,t2))
+                            maxdiff = max(max(abs(v1[0]-v2[0]), abs(v1[1]-v2[1])) for v1,v2 in zip(axlepos1, startingpos1))
                             if maxdiff < best:
                                 best = maxdiff
                                 bestpos1 = copy.deepcopy(axlepos1)
                                 bestpos1.append([RPxp,RPy]) #return the rack pinion coordinates as the last one of the left gear loop
                                 bestpos2 = []
                                 chosenRP = RP_discrep
-                        
-    print(f"after {steps**6 if bothloops else steps**3:,} possible combinations with {nleftgood:,} left good and {nrightgood:,} right good solutions")
+    
+    if bothloops:
+        print(f"after {steps**6:,} possible combinations with {nleftgood:,} left good and {nrightgood:,} right good solutions")
+    else:                    
+        print(f"after {steps**3:,} possible combinations with {nleftgood:,} left good solutions")
     if best == 99:
         print("----- no solution!")
         exit(0)
-    print(f"the best axle locations have a {best:.4f} inch maximum coordinate change")
+    print(f"the best axle locations have a {best:.4f} inch maximum coordinate change (not including the rack pinion)")
     angles1 = show_results("left", bestpos1, startingpos1, teeth1, DP_in1, DP_out1, initial_angle=starting_angle)
     if bothloops:
         angles2 = show_results("right", bestpos2, startingpos2, teeth2, DP_in2, DP_out2, initial_angle=angles1[2])
