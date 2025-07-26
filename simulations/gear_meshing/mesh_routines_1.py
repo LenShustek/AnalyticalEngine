@@ -9,6 +9,7 @@
    cogent explanations, although its tone is a bit sycophantic.
    
    Len Shustek, June 2025
+   July 11,2025: generalize verify_gear_tooth_angular for any number of gear >= 3 in the loop
 '''
 import math
 epsilon = 1e-8 #floating point fuzz
@@ -17,24 +18,24 @@ def normalize_angle(angle_rad):
     """Normalizes an angle to be between -pi and pi."""
     return math.atan2(math.sin(angle_rad), math.cos(angle_rad))
 
-def verify_gear_tooth_alignment_angular(name:str, axle_positions, teeth_counts, DPin, DPout, initial_angle=None, verbose=False):
+def verify_gear_tooth_alignment_angular(name:str, num_gears, axle_positions, teeth_counts, DPin, DPout, initial_angle=None, verbose=False):
     """
-    Verifies if teeth of a 5-pinion gear train forming a loop can perfectly align
+    Verifies if teeth of an N-pinion gear train forming a loop can perfectly align
     with the tooth space of their meshing partners, by explicitly propagating angular positions.
 
     This function assumes:
     1. The distances between axle centers are already correct for perfect pitch circle tangency.
-    2. The centers form a closed 5-sided polygon.
+    2. The centers form a closed polygon.
     3. Unless otherwise given, gear 0's (first gear's) reference tooth (e.g., tooth center)
        is initially aligned with the line connecting its axle (P0) to the axle of Gear 1 (P1).
 
     Inputs:
-        axle_positions (list of tuples): A list of 5 (x, y) tuples representing the
+        name (string): the name of this loope
+        num_gear (int): the number of gears in the loop
+        axle_positions (list of tuples): A list of N (x, y) tuples representing the
                                          coordinates of the gear axles.
-                                         e.g., [(x0, y0), (x1, y1), (x2, y2), (x3, y3), (x4, y4)]
-        teeth_counts (list of int): A list of 5 integers, where teeth_counts[i] is
+        teeth_counts (list of int): A list of N integers, where teeth_counts[i] is
                                     the number of teeth for gear i.
-                                    e.g., [N0, N1, N2, N3, N4]
         DPin (list of float): The diametral pitch for the input of gears
         DPout (list of float): The diametral pitch for the output of gears
         initial_angle: the optional angle of the first gear's reference tooth counter-clockwise from the horizontal in degrees 
@@ -45,10 +46,8 @@ def verify_gear_tooth_alignment_angular(name:str, axle_positions, teeth_counts, 
                                           the final angular discrepancy in 'tooth pitches'
                                           the list of gear reference tooth angles counter-clockwise from the horizontal in degrees
     """
-    num_gears = 5
-    if (len(axle_positions) < num_gears or len(teeth_counts) < num_gears or
-        len(DPin) < num_gears or len(DPout) < num_gears):
-        print( f"Error: {num_gears} gears are required for {name} analysis.")
+    if len(axle_positions)<num_gears or len(DPin)<num_gears or len(DPout)<num_gears or len(teeth_counts)<num_gears:
+        print( f"Error: all inputs must be at least {num_gears} long for {name} analysis.")
         exit(0)
 
     # Verify geometric consistency of axle distances 
@@ -80,8 +79,8 @@ def verify_gear_tooth_alignment_angular(name:str, axle_positions, teeth_counts, 
     current_gear_angles[0] = initial_line_angle_01 # G0's reference tooth points this way
     initial_G0_angle = current_gear_angles[0] # Store the initial angle of G0 for final comparison
 
-    # Propagate angular alignment through the chain: G0 -> G1 -> G2 -> G3 -> G4
-    for i in range(num_gears - 1): # Iterate for 4 meshes (0-1, 1-2, 2-3, 3-4)
+    # Propagate angular alignment through the chain: G0 -> G1 ->...-> Gn
+    for i in range(num_gears - 1): # Iterate for N-1 meshes, ie until the last gear
         current_gear_idx = i
         next_gear_idx = i + 1
         N_current = teeth_counts[current_gear_idx]
@@ -119,34 +118,34 @@ def verify_gear_tooth_alignment_angular(name:str, axle_positions, teeth_counts, 
         # 3. Convert required relative angle for next gear to its absolute angle
         current_gear_angles[next_gear_idx] = normalize_angle(required_relative_angle_next_to_incoming_line + alpha_next_to_current)
 
-    # --- Final Check: G4 with G0 ---
-    # We have current_gear_angles[4] (absolute angle of G4's reference tooth)
+    # --- Final Check: GN-1 with G0 ---
+    # We have current_gear_angles[N-1] (absolute angle of GN-1's reference tooth)
     # We need to see if it allows G0 to mesh perfectly with its initial angle.
     if verbose:
         current_gear_angle_degrees = [r * 180.0/math.pi for r in current_gear_angles]
         print(f"gear angles in degrees from horizontal:\n  {current_gear_angle_degrees}")
-    N_G4 = teeth_counts[4]
+    N_GNm1 = teeth_counts[num_gears-1]
     N_G0 = teeth_counts[0]
-    P_G4 = axle_positions[4]
+    P_GNm1 = axle_positions[num_gears-1]
     P_G0 = axle_positions[0]
 
-    # Angle of the line of centers from G4 to G0 (closing the loop)
-    dx_40 = P_G0[0] - P_G4[0]
-    dy_40 = P_G0[1] - P_G4[1]
+    # Angle of the line of centers from GN-1 to G0 (closing the loop)
+    dx_40 = P_G0[0] - P_GNm1[0]
+    dy_40 = P_G0[1] - P_GNm1[1]
     alpha_40 = math.atan2(dy_40, dx_40)
-    # Angle of the line of centers from G0 back to G4
+    # Angle of the line of centers from G0 back to GNm1
     alpha_04 = normalize_angle(alpha_40 + math.pi)
     #print(f"alpha_40 {alpha_40*180/math.pi}, alpha_04 {alpha_04*180/math.pi}")
 
-    # Relative angle of G4's reference tooth w.r.t. its 'forward' line of centers (P4->P0)
-    relative_angle_G4_to_forward_line = normalize_angle(current_gear_angles[4] - alpha_40)
-    #print(f"relative_angle_G4_to_forward_line {relative_angle_G4_to_forward_line*180/math.pi} degrees") #correct
+    # Relative angle of GN-1's reference tooth w.r.t. its 'forward' line of centers (PN-1->P0)
+    relative_angle_GNm1_to_forward_line = normalize_angle(current_gear_angles[num_gears-1] - alpha_40)
+    #print(f"relative_angle_GN-1_to_forward_line {relative_angle_GNm1_to_forward_line*180/math.pi} degrees") #correct
 
-    # Calculate the required absolute angle of G0's reference tooth for perfect mesh with G4
-    # (relative to its incoming line of centers, P0->P4)
-    #print(f"-relative_angle_G4_to_forward_line * N_G4 / N_G0 {(-relative_angle_G4_to_forward_line * N_G4 / N_G0)*180/math.pi}")
-    #print(f"-relative_angle_G4_to_forward_line {-relative_angle_G4_to_forward_line} radians ")
-    required_relative_angle_G0_to_incoming_line = (-relative_angle_G4_to_forward_line * N_G4 / N_G0
+    # Calculate the required absolute angle of G0's reference tooth for perfect mesh with GNm1
+    # (relative to its incoming line of centers, P0->PN-1)
+    #print(f"-relative_angle_GNm1_to_forward_line * N_GNm1 / N_G0 {(-relative_angle_GNm1_to_forward_line * N_GNm1 / N_G0)*180/math.pi}")
+    #print(f"-relative_angle_GNm1_to_forward_line {-relative_angle_GNm1_to_forward_line} radians ")
+    required_relative_angle_G0_to_incoming_line = (-relative_angle_GNm1_to_forward_line * N_GNm1 / N_G0
         ) + (math.pi / N_G0) # Half-pitch offset for tooth-to-space alignment
     
     required_relative_angle_G0_to_incoming_line = normalize_angle(required_relative_angle_G0_to_incoming_line)
