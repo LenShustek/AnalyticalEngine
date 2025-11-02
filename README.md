@@ -8,6 +8,8 @@ This repository will reflect a work continually in progress. It will contain pla
 notes, simulations, and designs as they are developed. Nothing here is static, and 
 no decision is immutable until we start construction, and maybe not even then. 
 
+I posted a 30-minute talk about the project here: https://youtu.be/HRmGAhwOo0s
+
 19 April 2024: As changes are made to reflect progress, this repository is starting to look more like a blog, especially recently in the test_designs/anticipating_carriage section. GitHub is not the right vehicle for that, so I've transitioned instead to using a real blog: https://worldsfirstcomputer.blogspot.com/. I'll keep putting design and code files here, but the narrative (in the conventional reverse chronological order) will now be in the blog.
 
 If you are interested in this project, the place to start is the latest version of the proposal
