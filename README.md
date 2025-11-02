@@ -1,9 +1,9 @@
 # Building the World's First Computer
 
-This is a project to build the "first computer": a fully mechanical version of
-Charles Babbage's Analytical Engine. It is a major undertaking that will take years.
-The original proposal is the file <ins>proposal_V0.5.pdf</ins> in this directory.
-As of the start of 2024 the effort has just begun.
+This is a project to build the "first computer": a version of
+Charles Babbage's entirely mechanical Analytical Engine. The original proposal is the file <ins>proposal_V0.5.pdf</ins> in this directory.
+
+It is a major undertaking that will take years. As of the start of 2024 the effort has just begun.
 
 This repository will reflect a work continually in progress. It will contain plans, 
 notes, simulations, and designs as they are developed. Nothing here is static, and 
