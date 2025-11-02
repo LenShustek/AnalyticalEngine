@@ -2,6 +2,7 @@
 
 This is a project to build the "first computer": a fully mechanical version of
 Charles Babbage's Analytical Engine. It is a major undertaking that will take years.
+The original proposal is the file <ins>proposal_V0.5.pdf</ins> in this directory.
 As of the start of 2024 the effort has just begun.
 
 This repository will reflect a work continually in progress. It will contain plans, 
