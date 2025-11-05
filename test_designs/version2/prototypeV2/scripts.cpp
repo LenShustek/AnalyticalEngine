@@ -5,40 +5,46 @@
 #define SCRIPT static const char *
 
 static const char* read_script[] = { // read s {top|bot} a {top|bot}
-   "mesh S#1 #2 finger; mesh RR top rack; mesh RP#3 A#3 #4; mesh MP#3 A#3 #4; unlock A#3 #4; unlock MP#3; unlock FP#3;",
+   "mesh S#1 #2 finger; mesh RR top rack; mesh RP#3 A#3 #4; mesh MP#3 A#3 #4; unlock A#3 #4; unlock MP#3; unlock FP#3; unlock R;",
    "giveoff S#1", "giveoff S#1", "giveoff S#1", "giveoff S#1", "giveoff S#1", "giveoff S#1", "giveoff S#1", "giveoff S#1", "giveoff S#1",
-   "unmesh S#1; unmesh RR; unmesh MP#3 A#3; lock MP#3; lock FP#3; lock A#3 delay;",
+   "unmesh S#1; unmesh RR; lock MP#3; unmesh MP#3 A#3;",
+   "lock FP#3; lock R; lock A#3 delay;",
    "giveoff S#1; unmesh RP#3;", NULL };
 
 static const char* readonly_script[] = { // readonly s {top|bot}
-   "mesh S#1 #2 finger; mesh RR top rack; mesh RP2 MP2; unlock MP2; unlock FP2; ", // RP-MP-FP is only to create drag
+   "mesh S#1 #2 finger; mesh RR top rack; mesh RP2 MP2; unlock MP2; unlock FP2; unlock R; ", // RP2-MP2-FP2 is only to create drag
    "giveoff S#1", "giveoff S#1", "giveoff S#1", "giveoff S#1", "giveoff S#1", "giveoff S#1", "giveoff S#1", "giveoff S#1", "giveoff S#1",
-   "unmesh S#1; unmesh RR; unmesh RP2; lock MP2; lock FP2;",
+   "unmesh S#1; unmesh RR; unmesh RP2; lock MP2; lock FP2; lock R;",
    "giveoff S#1;", NULL };
 
 static const char* write_script[] = { // write s {top|bot} a {top|bot}
-   "mesh S#1 #2 rack; mesh RR top rack; mesh RP#3 A#3 #4; mesh MP#3 A#3 #4; finger A#3 #4; unlock A#3 #4; unlock MP#3; unlock FP#3;",
+   "mesh S#1 #2 rack; mesh RR top rack; mesh RP#3 A#3 #4; mesh MP#3 A#3 #4; finger A#3 #4; unlock A#3 #4; unlock MP#3; unlock FP#3; unlock R;",
    "giveoff A#3", "giveoff A#3", "giveoff A#3", "giveoff A#3", "giveoff A#3", "giveoff A#3", "giveoff A#3", "giveoff A#3", "giveoff A#3",
-   "nofinger A#3; lock A#3; lock MP#3; lock FP#3;",
+   "nofinger A#3; lock R; lock A#3; lock MP#3; lock FP#3 delay;",
    "unmesh S#1; unmesh RR; unmesh MP#3 A#3; giveoff A#3; unmesh RP#3;", NULL };
 
 static const char* restore_script[] = { // restore the rack after writing
-   "mesh RR top finger;",
+   "mesh RR top finger; unlock R;",
    "giveoff RR", "giveoff RR", "giveoff RR", "giveoff RR", "giveoff RR", "giveoff RR", "giveoff RR", "giveoff RR", "giveoff RR",
+   "lock R;",
    "unmesh RR",
    "giveoff RR", NULL };
 
 static const char* revrestore_script[] = { // reverse restore the rack after reading
-   "mesh RR top finger;",
+   "giveoff RR 16 reverse",
+   "mesh RR top finger; unlock R;",
    "giveoff RR reverse", "giveoff RR reverse", "giveoff RR reverse", "giveoff RR reverse", "giveoff RR reverse",
-   "giveoff RR reverse", "giveoff RR reverse", "giveoff RR reverse", "giveoff RR reverse", "giveoff RR reverse",
-   "unmesh RR", NULL };
+   "giveoff RR reverse", "giveoff RR reverse", "giveoff RR reverse", "giveoff RR reverse",
+   "lock R;",
+   "unmesh RR",
+   "giveoff RR 2",  NULL };
 
 static const char* rewrite_script[] = { // rewrite s top|bot (reverse restore after reading and retain)
-   " mesh S#1 #2 rack; mesh RR top finger;",
+   "giveoff RR reverse",
+   "mesh S#1 #2 rack; mesh RR top finger; unlock R; ",
    "giveoff RR reverse", "giveoff RR reverse", "giveoff RR reverse", "giveoff RR reverse", "giveoff RR reverse",
-   "giveoff RR reverse", "giveoff RR reverse", "giveoff RR reverse", "giveoff RR reverse", "giveoff RR reverse",
-   "unmesh S#1; unmesh RR", NULL };
+   "giveoff RR reverse", "giveoff RR reverse", "giveoff RR reverse", "giveoff RR reverse",
+   "lock R; unmesh S#1; unmesh RR", NULL };
 
 static const char *zeroF_script[] = { // zeroF n [calibrate]
    "finger F#1; mesh FC#1;",
@@ -57,16 +63,16 @@ static const char *zeroA_script[] = { // zeroA n [top|bot] [calibrate]
    "giveoff A#1;", NULL };
 
 static const char *zeroS_script[] = { // zeroS n [top|bot] [calibrate]
-   "mesh S#1 #2 finger; mesh RP2 MP2; unlock MP2; unlock FP2;", // RP-MP-FP is only to create drag
+   "mesh S#1 #2 finger; mesh RP2 MP2; unlock MP2; unlock FP2; unlock R;", // RP-MP-FP is only to create drag
    "do_zero S#1 #3", // do the zero or the calibration
    "unmesh RP2;", "lock MP2;", " lock FP2 delay;", // do while S is still meshed with the rack
-   "unmesh S#1;",
+   "lock R; unmesh S#1;",
    "giveoff S#1", NULL };
 
 static const char *zeroRR_script[] = { // zeroS [top|bot] [calibrate]
-   "mesh RR #1 finger;",
+   "mesh RR #1 finger; unlock R;",
    "do_zero RR #2", // do the zero or the calibration
-   "unmesh RR",
+   "unmesh RR; lock R;",
    "giveoff RR", NULL };
 
 static const char *home_script[] = {

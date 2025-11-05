@@ -107,8 +107,9 @@ enum motornum_t {
    CTR1_L,    //68 counter 1 lift
    CTR2_R,    //69 counter 2 rotate
    CTR2_L,    //70 counter 2 lift
-   TEST_R,    //71 a motor test driver
-   NUM_MOTORS //72
+   RK_L,      //71 rack lock lift
+   TEST_R,    //72 a motor test driver
+   NUM_MOTORS //73
 };
 
 #define NM 99      //TEMP
@@ -146,6 +147,7 @@ struct motord_t { //**** a motor descriptor
    int board_number;                     // what board number? (1..6)
    int board_position;                   // what position (1..16) on the board?
    bool always_on;                       // should this motor be always enabled, ie powered on?
+   bool full_steps;                      // should we round movements down to full steps so we can power down between movements?
    bool temp_on;                         // is this motor temporarily held on?
    enum motor_state_t motor_state;       // is this motor currently on or off?
    int microstep_offset;                 // current CW offset from a full-step position, 0..uSTEPS_PER_STEP-1

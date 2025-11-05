@@ -105,6 +105,7 @@ struct motord_t motor_descriptors[] = {  // an unordered liset of descriptors fo
    { CTR1_R, ROTATE, "ctr1r", "counter 1 rotate", GEARMOTOR_BIG, GEARMOTOR_SMALL },
    { CTR2_L, LIFT, "ctr2l", "counter 2 lift" },
    { CTR2_R, ROTATE, "ctr2r", "counter 2 rotate", GEARMOTOR_BIG, GEARMOTOR_SMALL },
+   { RK_L, LIFT, "rk", "rack lock" },
    { TEST_R, ROTATE, "test", "test motor" },
    { -1 } };
 
@@ -127,7 +128,7 @@ void assign_motors(void) { // assign the physical location of the driver for eac
    setmotor(SIGN_R, 1, 10); // fixed long pinion 2 lock rotate
    setmotor(FP2K_R, 1, 11); // fixed long pinion 2 lock rotate
    setmotor(MP2K_R, 1, 12); // movable long pinion 2 lock rotate
-   //setmotor(?, 1, 13);
+   setmotor(RK_L, 1, 13);  // rack lock lift
    setmotor(RR_L, 1, 14); // rack restorer lift
    setmotor(RR_R, 1, 15);  // rack restorer rotate (fingers)
    setmotor(P22_L, 1, 16); // fixed long pinion connector 2 lift
@@ -147,7 +148,7 @@ void assign_motors(void) { // assign the physical location of the driver for eac
    setmotor(CTR2_L, 2, 13);  // counter 2 lift
    setmotor(CTR2_R, 2, 14);  // counter 2 rotate
    setmotor(CSK2_L, 2, 15);    // carry sector keepers lift
-   setmotor(TEST_R, 2, 16); }
+   setmotor(TEST_R, 2, 16); } // test motor
 struct motord_t* motor_num_to_descr[NUM_MOTORS]  // a map from motor number to motor descriptor
       = { 0 };
 
@@ -203,6 +204,7 @@ void initialize_motors(void) {
          // special cases we need to tweak
          //TEMP if (motornum == FP2K_R || motornum == MP2K_R) // some motors need to stay powered on to keep locking
          //TEMP   pmd->always_on = true;
+         if (motornum == RK_L) pmd->full_steps = true; // round to full steps to allow powering off between movements
       } }
    assign_motors();   // assign the addressing for the motors actually plugged in
    Serial.printf("%d motors were declared, %d were defined, and %d were assigned board positions\n",
@@ -445,18 +447,24 @@ void queue_movement(  // queue an elemental movement to happen during this time 
       numer = distance * pmd->gear_big * uSTEPS_PER_ROTATION;
       denom = 360 * pmd->gear_small;
       pmd->usteps_needed = numer / denom;
-      if (pmd->motor_type == ROTATE) { // normal rotator axis, possibly with gearset
-         pmd->deficit += numer % denom; }
-      else { // we're rotating a lifter by a specific number of degrees
-         pmd->deficit += (numer % denom) * 18;  // 18 = LCD(360,100)/100
-         denom *= 18; } }
+      if (pmd->full_steps) // round down to integral number of steps?
+         pmd->usteps_needed &= ~(uSTEPS_PER_STEP-1);
+      else { // could be a fraction of a microstep
+        if (pmd->motor_type == ROTATE) { // normal rotator axis, possibly with gearset
+           pmd->deficit += numer % denom; }
+        else { // we're rotating a lifter by a specific number of degrees
+           pmd->deficit += (numer % denom) * 18;  // 18 = LCD(360,100)/100
+           denom *= 18; } } }
    // Note that in C (unlike Python!) the modulus of a negative number is negative, which works out nicely.
    else {  // LIFT: distance is signed mils
       numer = distance * 254 * pmd->gear_big;
       denom = 100 * pmd->gear_small;
       pmd->usteps_needed = numer / denom;
-      pmd->deficit += (numer % denom) * 5;  // 5 = LCD(360/100)/360
-      denom *= 5; }
+      if (pmd->full_steps) // round down to integral number of steps?
+         pmd->usteps_needed &= ~(uSTEPS_PER_STEP-1);
+      else { // could be a fraction of a microstep 
+         pmd->deficit += (numer % denom) * 5;  // 5 = LCD(360/100)/360
+         denom *= 5; } }
    // check how big the accumulated deficit is
    if (pmd->deficit >= denom) { // we just accumulated a full ustep forward
       ++pmd->usteps_needed;

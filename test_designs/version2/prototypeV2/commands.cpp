@@ -14,7 +14,8 @@ fct_lock[] = {
    { "A3 top", A3K_L, -300 }, { "A3 bot", A3K_L, +300 }, {"A3", A1K_L, 0 },
    { "FP1", FP1K_R, 0 }, {"MP1", MP1K_R, 0 },
    { "FP2", FP2K_R, 0 }, {"MP2", MP2K_R, 0 },
-   { "FP3", FP3K_R, 0 }, {"MP3", MP3K_R, 0 }, { } },
+   { "FP3", FP3K_R, 0 }, {"MP3", MP3K_R, 0 },
+   { "R", RK_L, 0}, { } },
 fct_lock1[] = {
    {"FP1", FP1K_R, 30 }, {"MP1", MP1K_R, 30 },
    {"FP2", FP2K_R, 30 }, {"MP2", MP2K_R, 30 },
@@ -25,7 +26,8 @@ fct_unlock[] = {
    { "A3 top", A3K_L, +300 }, { "A3 bot", A3K_L, -300 }, {"A3", A1K_L, +550 },
    { "FP1", FP1K_R, 15 }, {"MP1", MP1K_R, 15 },
    { "FP2", FP2K_R, 15 }, {"MP2", MP2K_R, 15 },
-   { "FP3", FP3K_R, 15 }, {"MP3", MP3K_R, 15 }, { } },
+   { "FP3", FP3K_R, 15 }, {"MP3", MP3K_R, 15 }, 
+   { "R", RK_L, -500}, { } },
 fct_mesh[] = {
    {"FP1 A1 top", P12_L, 400 }, {"FP1 A1 bot", P12_L, -400 }, {"MP1 A1 top", P11_L, 400 }, {"MP1 A1 bot", P11_L, -400 },
    {"FP1 A2 top", P14_L, 400 }, {"FP1 A2 bot", P14_L, -400 }, {"MP1 A2 top", P13_L, 400 }, {"MP1 A2 bot", P13_L, -400 },
@@ -338,6 +340,8 @@ void do_giveoff(struct fct_move_t* move, const char** pptr) {  // give off one d
          else {
             //if (finger->current_position == 0 && debug >= 1)  HOW TO FIND THE FINGER AXIS FOR THIS ROTATOR??
             //   Serial.printf("** warning: finger for %s not engaged\n", finger->axle_name);
+            int degrees = DEGREES_PER_DIGIT;
+            if (scan_int(pptr, &degrees, 1, 2*DEGREES_PER_DIGIT)) ;
             bool reverse = scan_key(pptr, "reverse");
             queue_movement(pmd, ROTATE, reverse ? -DEGREES_PER_DIGIT : DEGREES_PER_DIGIT); }
          return; } }
@@ -418,7 +422,7 @@ bool do_timeunit(void) {
    if (!got_error && motors_queued > 0) {
       ++cyclenum;
       if (script_step && !do_step_wait()) return false;
-      if (debug >= 1) Serial.printf("*** at time unit %d, ", cyclenum);
+      if (debug >= 2) Serial.printf("*** at time unit %d, ", cyclenum);
       do_movements(timeunit_usec); } // execute all primitive movements and movements of all the scripts in this time unit
    return true; }
 

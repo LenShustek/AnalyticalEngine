@@ -70,7 +70,7 @@
 */
 const char* help[] = { // COMMANDS
    // These are the 19th century engine action commands
-   " lock|unlock An[top|bot] | MPn | FPn",    // move a gear lock in 1/2 timeunit
+   " lock|unlock An[top|bot] | MPn | FPn | R", // move a gear lock in 1/2 timeunit
    " lock1 MPn|FPn",                          // lock only the top (MP) or bottom (FP) pinion
    " mesh FPn|MPn An[top|bot]",               // create the link from a fixed or movable pinion to an A digit wheel
    " unmesh FPn|MPn An",                      // break that link
@@ -82,7 +82,7 @@ const char* help[] = { // COMMANDS
    " finger An{top|bot} | Fn",                // make the giving-off finger engage with the named digit wheel
    " nofinger An|Fn",                         // make the giving-off finger not engaged
    " shift MPn [up|down]",                    // make the movable long pinons shift, or not
-   " giveoff An|Fn|Sn|RR [reverse]",          // rotate the digit wheel down (or up) one digit
+   " giveoff An|Fn|Sn|RR [degrees] [reverse]",// rotate the digit wheel down (or up) one digit, or an arbitrary degrees
    " setcarry Fn 0|9",                        // carry chain position for 0's or 9's
    " carrywarn Fn up|down|reset|return",      // carry warning arm lift, or rotate to reset the carry warning arms
    " carry Fn add|sub|home",                  // rotate the carry sectors to add or subtract one, and return to home position
@@ -97,6 +97,7 @@ const char* help[] = { // COMMANDS
    "   rewrite s top|bot",                      //    reverse restore the rack after reading, and rewrite the value
    "   zeroF n [calibrate]",                    //    zero (or maybe calibrate) a carriage
    "   zeroA|zeroS n top|bot [calibrate]",      //    zero (or maybe calibrate) a Mill or Store digit wheel
+   "   zeroRR top|bot [calibrate]",             //    zero (or maybe calibrate) the rack restorer
    " repeat [n] <commands>",                    // repeat a list of commands until count or ESC or space
 
    // All those are remembered and can be repeated with Enter or Backspace.
@@ -162,6 +163,7 @@ const char* help[] = { // COMMANDS
    31 Jul 2025, L. Shustek, Retrofit to work with add/sub (Fibonacci) prototype again.
    19 Aug 2025, L. Shustek, Major change for store/add/sub prototype. Divide into multiple modules.
    31 Aug 2025, L. Shustek, Allow parallel execution of scripts; add script substitutable parameters
+    2 Nov 2025, L. Shustek, Allow some motors to round down movements to full steps to allow powering down.
 
    *************************************************************************************************************/
 
@@ -170,7 +172,7 @@ struct config_t  // the configuration record written to non-volatile EEPROM memo
 
 unsigned long timeunit_usec = DEFAULT_TIMEUNIT_MSEC * 1000L;  // to move one digit, or lift, or unlock, etc.
 
-int debug = 2;              // debug level from 0 to 5
+int debug = 1;              // debug level from 0 to 5
 int motors_queued = 0;      // how many motors are currently queued up to move
 bool got_error = false;     // was an error generated during this action?
 bool script_step = false;   // should we pause at each script command?
@@ -213,7 +215,7 @@ void setup(void) {
    delay(500);
    while (!Serial.available())
       ;  // wait for terminal emulator to connect and user to hit Enter
-   Serial.printf("*** AE prototype tester ***\nThe timeunit is %d msec.\n", timeunit_usec / 1000L);
+   Serial.printf("*** AE prototype tester ***\nThe timeunit is %d msec, debug is %d.\n", timeunit_usec / 1000L, debug);
    initialize_motors();
    read_config(); }
 
