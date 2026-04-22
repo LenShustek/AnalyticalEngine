@@ -70,43 +70,40 @@
 */
 const char* help[] = { // COMMANDS
    // These are the 19th century engine action commands
-   " lock|unlock An[top|bot] | MPn | FPn | R", // move a gear lock in 1/2 timeunit
-   " lock1 MPn|FPn",                          // lock only the top (MP) or bottom (FP) pinion
-   " mesh FPn|MPn An[top|bot]",               // create the link from a fixed or movable pinion to an A digit wheel
-   " unmesh FPn|MPn An",                      // break that link
-   " mesh Sn|RR top|bot rack|finger",         // mesh a Store or Rack Restorer wheel top or bottom with rack only, or rack and finger
-   " unmesh Sn|RR",                           // unmesh and lock the store wheel
-   " mesh RPn  An{top|bot} | MPn",            // mesh the rack to an A digit wheel, or just to MP2
-   " mesh FCn | REVn",                        // create an FP to carriage link straight, or with reversal
-   " unmesh RPn | FCn | REVn",                // break the specified link
-   " finger An{top|bot} | Fn",                // make the giving-off finger engage with the named digit wheel
-   " nofinger An|Fn",                         // make the giving-off finger not engaged
+   " lock|unlock An top|bot, MPn, FPn, R", // move a gear lock in 1/2 timeunit
+   " lock1 MPn, FPn",                          // lock only the top (MP) or bottom (FP) pinion
+   " mesh FPn|MPn An top|bot, Sn|RR top|bot rack|finger, SIGN rack|finger, RPn An top|bot, RPn MPn, FCn, REVn in|lock",
+   " unmesh FPn|MPn An, Sn, RR, SIGN, RPn, FCn, REVn", // break that link
+   " finger An top|bot, Fn",                // make the giving-off finger engage with the named digit wheel
+   " nofinger An, Fn",                         // make the giving-off finger not engaged
    " shift MPn [up|down]",                    // make the movable long pinons shift, or not
-   " giveoff An|Fn|Sn|RR [degrees] [reverse]",// rotate the digit wheel down (or up) one digit, or an arbitrary degrees
+   " giveoff An|Fn|Sn|RR|SIGN [degrees] [reverse]",// rotate the digit wheel down (or up) one digit, or an arbitrary degrees
    " setcarry Fn 0|9",                        // carry chain position for 0's or 9's
    " carrywarn Fn up|down|reset|return",      // carry warning arm lift, or rotate to reset the carry warning arms
    " carry Fn add|sub|home",                  // rotate the carry sectors to add or subtract one, and return to home position
    " keepers Fn up|mid|down|top|bottom",      // lift or rotate the carry sector keepers into position
+   " switchtest <name>",                      // test a named switch; set stop_repeat if on
+   " testmotor b n",                          // test motor n on board b
    "+optional: delay | time n m",             // for movements: delay to 2nd half, or to time relative to 0..99
 
    // these are the 21st century driver commands
-   " [run]|step {%s} [parms]",                  // run or single-step a script, with #n replaced with the nth parm
-   "   read|write s top|bot a top|bot",         //    read or write between Store s and Mill a
-   "   readonly s top|bot",                     //    read Store s
-   "   restore | revrestore",                   //    restore the rack after writing, or reverse restore after reading
-   "   rewrite s top|bot",                      //    reverse restore the rack after reading, and rewrite the value
-   "   zeroF n [calibrate]",                    //    zero (or maybe calibrate) a carriage
-   "   zeroA|zeroS n top|bot [calibrate]",      //    zero (or maybe calibrate) a Mill or Store digit wheel
-   "   zeroRR top|bot [calibrate]",             //    zero (or maybe calibrate) the rack restorer
-   " repeat [n] <commands>",                    // repeat a list of commands until count or ESC or space
+   " [run]|step %s",                           // run or single-step a script, with #n replaced with the nth parm
+   "   read|write Sn top|bot Am top|bot",      // read or write between Store n and Mill m
+   "   readonly Sn top|bot",                   // read Store s
+   "   restore read|write",                    // restore the rack after reading or writing
+   "   rewrite Sn top|bot",                    // restore the rack after reading and rewrite the value
+   "   zero Sn|An|Fn|RR|SIGN top|bot [calibrate]", // zero (or maybe calibrate) a digit stack
+   "   set Sn|An top|bot",                     // set a digit stack by hand
+   "   add|sub|load An top|bot",               // mill digit wheel: add it to, subtract it from, or load it from its carriage
+   " repeat [n] <commands>",                   // repeat a list of commands until count or /
 
    // All those are remembered and can be repeated with Enter or Backspace.
    // The following state commands are not remembered:
-   " home | state | reset | pause [ms] | bell | restart",  // move to initial position, show state, reset internal state, pause script n msec, sound bell, restart processor
+   " home | state | reset | pause [ms|comment] | bell | restart",  // move to initial position, show state, reset internal state, pause script n msec, sound bell, restart processor
    " timeunit [ms] | tu | debug [n]",     // set parameters
    " switches | motors",                  // monitor for changes in the switches; show motor assignments
    " help | ?",                           // show help
-   " off|on [<axle>|all]",                // motor power control for either everything or a named axle motor
+   " off|on <axle>",                      // motor power control for either everything or a named axle motor
    " rot|lift <axle> <amount>",           // primitive lift in mils, or rotation in degrees
    " calibrate <axle> <degrees>",         // force calibration of digit wheel stack
    NULL };
@@ -124,7 +121,7 @@ const char* help[] = { // COMMANDS
    command is issued:
 
       lock F; lock A1; lock A2; lock FP; lock MP;
-      unmesh FC; unmesh FPC; unmesh MPC
+      unmesh FC; unmesh FPC; unmesh MPC; unmesh REV; 
       nofinger F; nofinger A
       setcarry 9; carrywarn down;
       keepers top; keepers down
@@ -134,7 +131,7 @@ const char* help[] = { // COMMANDS
 
    Set the reference voltage on the DRV8825 driver boards to current limit as follows:
      NEMA 17 60mm long: max 2.1A, set to 0.8V for 1.6A
-     NEMA 11 28mm long: max 0.8A, set to 0.3V for 0.6A
+     NEMA 11 28mm long: max 0.8A, set to 0.4V for 0.8A
      NEMA 8  39mm long: max 0.8A, set to 0.3V for 0.6A
      NEMA 8  27mm long: max 0.2A, set to 0.1V for 0.2A
 
@@ -164,7 +161,7 @@ const char* help[] = { // COMMANDS
    19 Aug 2025, L. Shustek, Major change for store/add/sub prototype. Divide into multiple modules.
    31 Aug 2025, L. Shustek, Allow parallel execution of scripts; add script substitutable parameters
     2 Nov 2025, L. Shustek, Allow some motors to round down movements to full steps to allow powering down.
-
+   16 Apr 2026, L. Shustek, Add a line editor for commands; add testmotor
    *************************************************************************************************************/
 
 struct config_t  // the configuration record written to non-volatile EEPROM memory
@@ -172,23 +169,22 @@ struct config_t  // the configuration record written to non-volatile EEPROM memo
 
 unsigned long timeunit_usec = DEFAULT_TIMEUNIT_MSEC * 1000L;  // to move one digit, or lift, or unlock, etc.
 
-int debug = 1;              // debug level from 0 to 5
+int debug = 2;              // debug level from 0 to 5
 int motors_queued = 0;      // how many motors are currently queued up to move
 bool got_error = false;     // was an error generated during this action?
 bool script_step = false;   // should we pause at each script command?
-int cyclenum = 0;
+int cyclenum = 0, totaltime = 0;
 
-void assert(bool test, const char* msg1, const char* msg2) {
-   if (!test) {
-      Serial.printf("*** ASSERTION FAILED: %s %s\n", msg1, msg2);
+void assert(bool t, const char *msg, ...) {
+   if (!t) {
+      va_list args;
+      va_start(args, msg);
+      Serial.print("*** ASSERTION FAILED  ");
+      char line[200];
+      vsnprintf(line, sizeof(line), msg, args);
+      Serial.println(line);
+      va_end(args);
       while (1); } }
-void assert(bool test, const char* msg) {
-   assert(test, msg, ""); }
-void assert(bool test, const char*msg, int value) {
-   if (!test) {
-      char number[20];
-      sprintf(number, "%d", value);
-      assert(false, msg, number); } }
 
 void read_config(void) {
    for (unsigned i = 0; i < sizeof(config); ++i)
@@ -198,7 +194,7 @@ void read_config(void) {
    else for (int motornum = 0; motornum < NUM_MOTORS; ++motornum)
          if (config.finger_zero_degrees[motornum].degrees != -1) { // undefined is 0xff!
             struct motord_t *pmd = motor_num_to_descr[motornum];
-            assert(pmd, "undeclared motor: ", motornum);
+            assert(pmd, "undeclared motor: %d", motornum);
             Serial.printf("digit wheel %s (%s) is calibrated to %d degrees\n",
                           pmd->axle_name, pmd->axle_descr,
                           config.finger_zero_degrees[motornum].degrees); } }
@@ -223,11 +219,12 @@ void setup(void) {
 
 void loop(void) {
 
-   getstring(cmdline, sizeof(cmdline));  // get and parse commands
+   getcmdline();  // get a command line from the keyboard
    got_error = script_step = false;
-   cyclenum = 0;
+   cyclenum = totaltime = 0;
    execute_commands(cmdline);
    //if (!got_error) do_movements(timeunit_usec);  // do any queued "rot" and "lift" movements
    if (cyclenum > 1) {
-      unsigned msec = (cyclenum * timeunit_usec) / 1000;
-      Serial.printf("%u time units, %u.%03u seconds\n", cyclenum, msec / 1000, msec % 1000); } }
+      unsigned msec = totaltime / 1000;
+      Serial.printf("%u time units, %u.%03u seconds, %u msec per time unit\n", 
+      cyclenum, msec / 1000, msec % 1000, msec/cyclenum); } }

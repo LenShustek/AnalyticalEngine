@@ -1,18 +1,19 @@
 /* prototype.h
- debug values:
-  0 nothing
-  1 UI level summary
-  2 overall motor overall movement report; parsing overview
-  3 individual motor movement report; parsing info
-  4 schedules and start/stop of motor movements
-  5 every move of every motor
-  6 every step of every motor
-  */
+   debug values:
+   0 nothing
+   1 UI level summary
+   2 overall motor overall movement report; parsing overview
+   3 individual motor movement report; parsing info
+   4 schedules and start/stop of motor movements
+   5 every move of every motor
+   6 every step of every motor
+*/
 #define MULDIV_PROTOTYPE false      // multiply/divider: three digit stacks, three sets of long pinions, two carriages, and counters
 #define NUM_STORE 6                 // number of store axles, not including rack restorer
 #define uSTEPS_PER_STEP 4           // how many microsteps per step the drivers are configured for (MODE1 high)
+#define TIGHTEN_LOCK_DEGREES -2     // force the rotary lock to tighten by these many degrees past hand-locked
 #define DIGIT_REPETITIONS 2         // number of repetitions of 0-9 on each wheel
-#define DEFAULT_TIMEUNIT_MSEC 500   // default time unit for moving one digit (157 for Plans 16-28)
+#define DEFAULT_TIMEUNIT_MSEC 250   // default time unit for moving one digit (157 for Plans 16-28)
 #define DEBOUNCE 25                 // switch debounce time in msec
 #define CMDLENGTH 150
 
@@ -21,15 +22,23 @@
 
 #include "Arduino.h"
 #include <limits.h>
-#define BELL '\x0a'
-#define ESC  '\x1b'
-#define DEL  '\x7f'
 #define HOME '\x01'
 #define END  '\x04'
+#define INSERT '\x05'
+#define BELL '\x07'
+#define BACKSPACE '\x08'
+#define ENTER '\x0d'
+#define ESC  '\x1b'
+#define LEFTARROW '\x1c'
+#define RIGHTARROW '\x1d'
+#define UPARROW '\x1e'
+#define DOWNARROW '\x1f'
+#define DEL  '\x7f'
+#define F1 '\x80'  // (our invention)
+#define F2 '\x81'  // (our invention)
 
 #define uSTEPS_PER_ROTATION (uSTEPS_PER_STEP * STEPS_PER_ROTATION)
 #define DEGREES_PER_DIGIT (360 / 10 / DIGIT_REPETITIONS)
-#define EXTRA_DEGREES_FOR_CARRY 5 // backlash, and carry wheels are smaller
 
 // Motors are *declared* here by assigning motor numbers from 0..95.
 // Motors are *defined* in motors.cpp by allocating a motor_descriptor (see below) for them.
@@ -115,23 +124,28 @@ enum motornum_t {
 #define NM 99      //TEMP
 
 //input signals multiplexed into SWITCH_INPUT according to MUXA/B/C/D
+//As these are defined, add them to the switchnum_t array in motors.cpp
 #define SW_A1       // index position for Mill digit wheel
 #define SW_A2 0     // index position for Mill digit wheel
 #define SW_A3       // index position for Mill digit wheel
 #define SW_F2 3     // index position for carriage 2
 #define SW_F3       // index position for carriage 3
-#define SW_SIGN     // sign wheel odd/even
-#define SW_CTR1     // counter 1 is zero
-#define SW_CTR2     // counter 2 is zero
-#define SW_S1  1     // index position for store wheel
-#define SW_S2       // index position for store wheel
+#define SW_SIGN 6   // sign wheel odd/even
+#define SW_CTR1 5   // counter 1 is zero
+#define SW_CTR2 4   // counter 2 is zero
+#define SW_S1 1     // index position for store wheel
+#define SW_S2 8     // index position for store wheel
 #define SW_S3       // index position for store wheel
 #define SW_S4       // index position for store wheel
 #define SW_S5       // index position for store wheel
 #define SW_S6       // index position for store wheel *** RAN OUT OF SWITCHES!
-#define SW_RR  2     // index position for rack restorer
-#define F2_RUNUP    // carriage runup
+#define SW_RR 2     // index position for rack restorer
+#define F2_RUNUP  7 // carriage runup
 #define F3_RUNUP    // carriage runup
+
+struct switchnum_t {
+   const int switch_number;
+   const char* switch_name; };
 
 enum movement_t { ROTATE, LIFT, ANY_MOVEMENT };  // movement types
 enum motor_state_t { ON, OFF };
@@ -146,14 +160,16 @@ struct motord_t { //**** a motor descriptor
    bool assigned;                        // has this motor been assigned a controller?
    int board_number;                     // what board number? (1..6)
    int board_position;                   // what position (1..16) on the board?
-   bool always_on;                       // should this motor be always enabled, ie powered on?
+   bool keep_on;                         // should this motor be kept on once powered on?
    bool full_steps;                      // should we round movements down to full steps so we can power down between movements?
+   int backlash_degrees;                 // compensate this number of degrees when changing direction
    bool temp_on;                         // is this motor temporarily held on?
    enum motor_state_t motor_state;       // is this motor currently on or off?
    int microstep_offset;                 // current CW offset from a full-step position, 0..uSTEPS_PER_STEP-1
    int deficit;                          // the numerator of the current fractional ustep deficit; for denominator see queue_movement()
    bool move_queued, moving_now;         // is this motor scheduled for movement, and is it moving now?
    bool clockwise;                       // in which direction?
+   int previous_distance;                // what signed distance we went last time
    int usteps_needed;                    // how many movement steps are needed for all time units
    int usteps_done;                      // how many steps have been done in the current time unit
    int ending_ustep;                     // ending step number in the current time unit
@@ -173,11 +189,9 @@ struct fct_move_t {         // basic movement specification
 #define NOMOVE INT_MAX
 
 struct script_t {
-   const char* name;             // the name of the script
-   //   const char (*commands)[];
-   const char** commands;        // const pointer to an array of compound commands
-   //   const char **next_command;    // pointer to where in the array to execute next  NO: can't do one script multiple times
-   //   struct script_t *next_script; // pointer to the next script being simultaneously executed NO: can't do one script multiple times
+   const char* name;         // the name of the script
+   const char** commands;    // const pointer to an array of compound commands
+   bool noshow;              // if true, don't show this script when listing available scripts
 };
 
 extern struct config_t {  // the configuration record written to non-volatile EEPROM memory
@@ -193,38 +207,42 @@ extern struct motord_t motor_descriptors[];
 extern struct motord_t* motor_num_to_descr[];
 extern char cmdline[CMDLENGTH];
 extern const char* help[];
-extern int debug, motors_queued, cyclenum;
-extern bool got_error, script_step;
+extern int debug, motors_queued, cyclenum, totaltime;
+extern bool got_error, script_step, stop_repeat;
 extern unsigned long timeunit_usec;
 extern struct fct_move_t fct_zero[], fct_weaklock[];
+extern struct switchnum_t switch_numbers[];
 
-void assert(bool test, const char* msg);
-void assert(bool test, const char* msg1, const char* msg2);
-void assert(bool test, const char* msg, int value);
-void execute_commands(const char* ptr);
+void assert(bool test, const char* msg, ...);
+void execute_commands(const char* ptr, ...);
+void execute_commandstring(const char* ptr, int level);
 void flush_input(void);
 int wait_for_char(void);
 void error(const char* msg, const char* info);
+void error(const char* msg, int info);
+void error(const char* msg);
 bool scan_key(const char** pptr, const char* keyword);
 bool scan_int(const char** pptr, int* pnum, int min, int max);
+bool scan_command(const char** pptr, int level);
 struct motord_t* scan_axlename(const char** pptr, enum movement_t which, bool showerr);
 void initialize_iopins(void);
 void initialize_motors(void);
-void getstring(char* buf, unsigned buflen);
+void getcmdline(void);
 void queue_movement(struct motord_t* pmd, enum movement_t movetype, int distance, int start = 0, int end = 99);
 bool do_movements(unsigned long duration_usec);
 void clear_movements(void);
 void show_motors(void);
 bool do_step_wait(void);
-void do_homescript(void);
-struct fct_move_t* do_function(struct fct_move_t* move, const char** pptr);
+struct fct_move_t* do_function(struct fct_move_t* move, const char** pptr, bool halfunit = false);
 void do_calibrate(const char** pptr);
 void read_config(void);
 void write_config(void);
 int read_switch(int switch_number);
 void do_test(void);
+void do_testmotor(const char** pptr); 
+void chaintest_proc(void);
 
 void power_motor(struct motord_t *pmd, enum motor_state_t onoff, bool forceoff = false);
-void power_motors(enum motor_state_t onoff, bool all = false);
+void power_motors(enum motor_state_t onoff);
 
 //*

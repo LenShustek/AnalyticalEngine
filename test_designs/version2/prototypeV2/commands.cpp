@@ -4,18 +4,21 @@
 
 struct fct_move_t
    fct_giveoff[] = {
-   {"A2", A2_R }, {"A2", A2_R }, {"A2", A2_R },
-   {"F2", F2_R }, {"F3", F3_R },
-   {"S1", S1_R }, {"S2", S2_R }, {"S3", S3_R }, {"S4", S4_R }, {"S5", S5_R }, {"S6", S6_R },
-   {"RR", RR_R }, { } },
+   {"A2", A2_R, DEGREES_PER_DIGIT }, {"A2", A2_R, DEGREES_PER_DIGIT }, {"A2", A2_R, DEGREES_PER_DIGIT },
+   {"F2", F2_R, DEGREES_PER_DIGIT }, {"F3", F3_R, DEGREES_PER_DIGIT },
+   {"S1", S1_R, DEGREES_PER_DIGIT }, {"S2", S2_R, DEGREES_PER_DIGIT }, {"S3", S3_R, DEGREES_PER_DIGIT },
+   {"S4", S4_R, DEGREES_PER_DIGIT }, {"S5", S5_R, DEGREES_PER_DIGIT }, {"S6", S6_R, DEGREES_PER_DIGIT },
+   {"RR", RR_R, DEGREES_PER_DIGIT },
+   {"SIGN", SIGN_R, -DEGREES_PER_DIGIT }, // has no extra eternal gearset, so reverse direction
+   { } },
 fct_lock[] = {
    { "A1 top", A1K_L, -300 }, { "A1 bot", A1K_L, +300 }, {"A1", A1K_L, 0 },
    { "A2 top", A2K_L, -300 }, { "A2 bot", A2K_L, +300 }, {"A2", A2K_L, 0 },
    { "A3 top", A3K_L, -300 }, { "A3 bot", A3K_L, +300 }, {"A3", A1K_L, 0 },
-   { "FP1", FP1K_R, 0 }, {"MP1", MP1K_R, 0 },
-   { "FP2", FP2K_R, 0 }, {"MP2", MP2K_R, 0 },
-   { "FP3", FP3K_R, 0 }, {"MP3", MP3K_R, 0 },
-   { "R", RK_L, 0}, { } },
+   { "FP1", FP1K_R, TIGHTEN_LOCK_DEGREES }, {"MP1", MP1K_R, TIGHTEN_LOCK_DEGREES },
+   { "FP2", FP2K_R, TIGHTEN_LOCK_DEGREES }, {"MP2", MP2K_R, TIGHTEN_LOCK_DEGREES },
+   { "FP3", FP3K_R, TIGHTEN_LOCK_DEGREES }, {"MP3", MP3K_R, TIGHTEN_LOCK_DEGREES },
+   { "R", RK_L, 0 }, { } },
 fct_lock1[] = {
    {"FP1", FP1K_R, 30 }, {"MP1", MP1K_R, 30 },
    {"FP2", FP2K_R, 30 }, {"MP2", MP2K_R, 30 },
@@ -24,22 +27,22 @@ fct_unlock[] = {
    { "A1 top", A1K_L, +300 }, { "A1 bot", A1K_L, -300 }, {"A1", A1K_L, +550 },
    { "A2 top", A2K_L, +300 }, { "A2 bot", A2K_L, -300 }, {"A2", A2K_L, +550 },
    { "A3 top", A3K_L, +300 }, { "A3 bot", A3K_L, -300 }, {"A3", A1K_L, +550 },
-   { "FP1", FP1K_R, 15 }, {"MP1", MP1K_R, 15 },
-   { "FP2", FP2K_R, 15 }, {"MP2", MP2K_R, 15 },
-   { "FP3", FP3K_R, 15 }, {"MP3", MP3K_R, 15 }, 
-   { "R", RK_L, -500}, { } },
+   { "FP1", FP1K_R, 17 }, {"MP1", MP1K_R, 17 },
+   { "FP2", FP2K_R, 17 }, {"MP2", MP2K_R, 17 },
+   { "FP3", FP3K_R, 17 }, {"MP3", MP3K_R, 17 },
+   { "R", RK_L, -500 }, { } },
 fct_mesh[] = {
-   {"FP1 A1 top", P12_L, 400 }, {"FP1 A1 bot", P12_L, -400 }, {"MP1 A1 top", P11_L, 400 }, {"MP1 A1 bot", P11_L, -400 },
-   {"FP1 A2 top", P14_L, 400 }, {"FP1 A2 bot", P14_L, -400 }, {"MP1 A2 top", P13_L, 400 }, {"MP1 A2 bot", P13_L, -400 },
-   {"FP2 A2 top", P22_L, 400 }, {"FP2 A2 bot", P22_L, -400 }, {"MP2 A2 top", P21_L, 400 }, {"MP2 A2 bot", P21_L, -400 },
-   {"FP2 A3 top", P24_L, 400 }, {"FP2 A3 bot", P24_L, -400 }, {"MP2 A3 top", P23_L, 400 }, {"MP2 A3 bot", P23_L, -400 },
-   {"FP3 A3 top", P32_L, 400 }, {"FP3 A3 bot", P32_L, -400 }, {"MP3 A3 top", P31_L, 400 }, {"MP3 A3 bot", P31_L, -400 },
-   {"RP1 A1 top", RP1_L, 1220 }, {"RP1 A1 bot", RP1_L, 370 }, {"RP1 MP1", RP1_L, (1220 + 370) / 2 },
-   {"RP2 A2 top", RP2_L, 1220 }, {"RP2 A2 bot", RP2_L, 370 }, {"RP2 MP2", RP2_L, (1220 + 370) / 2 },
-   {"REV2", REV2_L, 400 },  { "FC2", FC2_L, 400 },
-   {"REV3", REV3_L, 400 },  { "FC3", FC3_L, 400 },
-#define STORE_RACK 270     // how far in mils to move the store digit wheels to engage with only the rack, for writing
-#define STORE_FINGER 525   // how far to move to engage with both the rack and the finger, for reading
+   {"FP1 A1 top", P12_L, 475 }, {"FP1 A1 bot", P12_L, -475 }, {"MP1 A1 top", P11_L, 475 }, {"MP1 A1 bot", P11_L, -475 },
+   {"FP1 A2 top", P14_L, 475 }, {"FP1 A2 bot", P14_L, -475 }, {"MP1 A2 top", P13_L, 475 }, {"MP1 A2 bot", P13_L, -475 },
+   {"FP2 A2 top", P22_L, 475 }, {"FP2 A2 bot", P22_L, -475 }, {"MP2 A2 top", P21_L, 475 }, {"MP2 A2 bot", P21_L, -475 },
+   {"FP2 A3 top", P24_L, 475 }, {"FP2 A3 bot", P24_L, -475 }, {"MP2 A3 top", P23_L, 475 }, {"MP2 A3 bot", P23_L, -475 },
+   {"FP3 A3 top", P32_L, 475 }, {"FP3 A3 bot", P32_L, -475 }, {"MP3 A3 top", P31_L, 475 }, {"MP3 A3 bot", P31_L, -475 },
+   {"RP1 A1 top", RP1_L, 1300 }, {"RP1 A1 bot", RP1_L, 500 }, {"RP1 MP1", RP1_L, (1300 + 500) / 2 },
+   {"RP2 A2 top", RP2_L, 1300 }, {"RP2 A2 bot", RP2_L, 500 }, {"RP2 MP2", RP2_L, (1300 + 500) / 2 },
+   {"REV2 in", REV2_L, 400 }, {"REV2 lock", REV2_L, -250 }, { "FC2", FC2_L, 350 },
+   {"REV3 in", REV3_L, 400 }, {"REV3 lock", REV2_L, -250 }, { "FC3", FC3_L, 350 },
+#define STORE_RACK 280     // how far in mils to move the store digit wheels to engage with only the rack, for writing
+#define STORE_FINGER 575   // how far to move to engage with both the rack and the finger, for reading
    {"S1 top rack", S1_L, -STORE_RACK }, {"S1 bot rack", S1_L, STORE_RACK }, {"S1 top finger", S1_L, -STORE_FINGER }, {"S1 bot finger", S1_L, STORE_FINGER},
    {"S2 top rack", S2_L, -STORE_RACK }, {"S2 bot rack", S2_L, STORE_RACK }, {"S2 top finger", S2_L, -STORE_FINGER }, {"S2 bot finger", S2_L, STORE_FINGER },
    {"S3 top rack", S3_L, -STORE_RACK }, {"S3 bot rack", S3_L, STORE_RACK }, {"S3 top finger", S3_L, -STORE_FINGER }, {"S3 bot finger", S3_L, STORE_FINGER },
@@ -47,12 +50,13 @@ fct_mesh[] = {
    {"S5 top rack", S5_L, -STORE_RACK }, {"S5 bot rack", S5_L, STORE_RACK }, {"S5 top finger", S5_L, -STORE_FINGER }, {"S5 bot finger", S5_L, STORE_FINGER },
    {"S6 top rack", S6_L, -STORE_RACK }, {"S6 bot rack", S6_L, STORE_RACK }, {"S6 top finger", S6_L, -STORE_FINGER }, {"S6 bot finger", S6_L, STORE_FINGER },
    {"RR top rack", RR_L, -STORE_RACK }, {"RR bot rack", RR_L, STORE_RACK }, {"RR top finger", RR_L, -STORE_FINGER }, {"RR bot finger", RR_L, STORE_FINGER },
+   {"SIGN rack", SIGN_L, 400 }, {"SIGN finger", SIGN_L, 650 },
    { } },
 fct_unmesh[] = {
    {"FP1 A1", P12_L, 0 }, {"MP1 A1", P11_L, 0 }, {"FP1 A2", P14_L, 0 }, {"MP1 A2", P13_L, 0 },
    {"FP2 A2", P22_L, 0 }, {"MP2 A2", P21_L, 0 }, {"FP2 A3", P24_L, 0 }, {"MP2 A3", P23_L, 0 },
    {"FP3 A3", P32_L, 0 }, {"MP3 A3", P31_L, 0 },
-   {"S1", S1_L, 0 },  {"S2", S2_L, 0 },  {"S3", S3_L, 0 },  {"S4", S4_L, 0 },  {"S5", S5_L, 0 },  {"S6", S6_L, 0 }, {"RR", RR_L, 0 },
+   {"S1", S1_L, 0 },  {"S2", S2_L, 0 },  {"S3", S3_L, 0 },  {"S4", S4_L, 0 },  {"S5", S5_L, 0 },  {"S6", S6_L, 0 }, {"RR", RR_L, 0 }, {"SIGN", SIGN_L, 0 },
    {"RP1", RP1_L, 0 }, {"RP2", RP2_L, 0 }, {"RP3", RP3_L, 0 },
    {"REV2", REV2_L, 0 }, {"FC2", FC2_L, 0 },
    {"REV3", REV3_L, 0 }, {"FC3", FC3_L, 0 }, { } },
@@ -72,19 +76,22 @@ fct_zero[] = {
    {"F2", F2_L, NOMOVE }, {"F3", F3_L, NOMOVE },
    {"A1", A1_L, NOMOVE }, {"A2", A2_L, NOMOVE }, {"A3", A3_L, NOMOVE },
    {"S1", S1_L, NOMOVE }, {"S2", S2_L, NOMOVE }, {"S3", S3_L, NOMOVE }, {"S4", S4_L, NOMOVE }, {"S5", S5_L, NOMOVE }, {"S6", S6_L, NOMOVE },
-   {"RR", RR_L, NOMOVE }, { } },
+   {"RR", RR_L, NOMOVE }, {"SIGN", SIGN_L, NOMOVE }, { } },
 fct_setcarry[] = {
-   {"F2 0", CL2_R, 41 }, { "F2 9", CL2_R, 0 },
-   {"F3 0", CL3_R, 41 }, { "F3 9", CL3_R, 0 }, { } },
+   {"F2 0", CL2_R, -42 }, { "F2 9", CL2_R, 0 },
+   {"F3 0", CL3_R, -42 }, { "F3 9", CL3_R, 0 }, { } },
 fct_carrywarn[] = {
-   {"F2 up", CW2_L, 450 }, { "F2 down", CW2_L, 0 }, { "F2 reset", CW2_R, 20 }, { "F2 return", CW2_R, 0 }, // .4 + .05 slop from warning lever to lifter
-   {"F3 up", CW3_L, 450 }, { "F3 down", CW3_L, 0 }, { "F3 reset", CW3_R, 20 }, { "F3 return", CW3_R, 0 }, { } },
+   {"F2 up", CW2_L, 500 }, { "F2 down", CW2_L, 0 }, { "F2 reset", CW2_R, 20 }, { "F2 return", CW2_R, 0 }, // .4 + .05 slop from warning lever to lifter
+   {"F3 up", CW3_L, 500 }, { "F3 down", CW3_L, 0 }, { "F3 reset", CW3_R, 20 }, { "F3 return", CW3_R, 0 }, { } },
 fct_carry[] = {
-   {"F2 add", CS2_R, -(DEGREES_PER_DIGIT + EXTRA_DEGREES_FOR_CARRY) }, {"F2 sub", CS2_R, +EXTRA_DEGREES_FOR_CARRY }, {"F2 home", CS2_R, 0 },
-   {"F3 add", CS3_R, -(DEGREES_PER_DIGIT + EXTRA_DEGREES_FOR_CARRY) }, {"F3 sub", CS3_R, +EXTRA_DEGREES_FOR_CARRY }, {"F3 home", CS3_R, 0 }, { } },
+   {"F2 add", CS2_R, -24 }, {"F2 sub", CS2_R, 0 }, {"F2 home", CS2_R, 0 },
+   {"F3 add", CS3_R, -24 }, {"F3 sub", CS3_R, 0 }, {"F3 home", CS3_R, 0 }, { } },
 fct_keepers[] = {
-   {"F2 top", CSK2_R, 0 }, {"F2 bottom", CSK2_R, 90 }, {"F2 up", CSK2_L, 500 }, {"F2 mid", CSK2_L, 450 }, { "F2 down", CSK2_L, 0 },
-   {"F3 top", CSK3_R, 0 }, {"F3 bottom", CSK3_R, 90 }, {"F3 up", CSK3_L, 500 }, {"F3 mid", CSK3_L, 450 }, { "F3 down", CSK3_L, 0 }, { } },
+   {"F2 top", CSK2_R, 0 }, {"F2 bottom", CSK2_R, 90 }, {"F2 up", CSK2_L, 500 }, {"F2 mid", CSK2_L, 350 }, { "F2 down", CSK2_L, 0 },
+   {"F3 top", CSK3_R, 0 }, {"F3 bottom", CSK3_R, 90 }, {"F3 up", CSK3_L, 500 }, {"F3 mid", CSK3_L, 350 }, { "F3 down", CSK3_L, 0 }, { } },
+fct_ctr[] = {
+   {"1 top", CTR1_L, 800 }, {"1 mid", CTR1_L, 500 }, {"1 bot", CTR1_L, 0 }, {"1 up", CTR1_R, 360 / 20, true }, {"1 down", CTR1_R, -360 / 20, true },
+   {"2 top", CTR2_L, 800 }, {"2 mid", CTR2_L, 500 }, {"2 bot", CTR2_L, 0 }, {"2 up", CTR2_R, 360 / 20, true }, {"2 down", CTR2_R, -360 / 20, true }, { } },
 fct_test[] = { {"left", TEST_R, -90 }, {"right", TEST_R, 90 } };
 
 
@@ -92,12 +99,17 @@ fct_test[] = { {"left", TEST_R, -90 }, {"right", TEST_R, 90 } };
 
 char cmdline[CMDLENGTH], prev_cmd[CMDLENGTH] = { 0 }, prev_prev_cmd[CMDLENGTH] = { 0 };
 bool saved_cmd = false;
+static bool locks_tightened = false;
 
 void show_help(void) {
-   char scriptnames[200];  // create a list of all the script names
+   char scriptnames[200];  // create a list of all the !noshow script names
    char* p = scriptnames;
    for (struct script_t* sp = named_scripts; sp->name; ++sp)
-      p += sprintf(p, "%s|", sp->name);
+      if ( !sp->noshow) {
+         const char *lastchar = NULL;
+         if (false/*only up to first blank?*/) lastchar = strchr(sp->name, ' ');
+         if (!lastchar) lastchar = sp->name + strlen(sp->name);
+         p += sprintf(p, "%.*s|", (int)(lastchar - sp->name), sp->name);  }
    *(p - 1) = 0;             // remove last "|"
    const char** ptr = help;  // print all the help lines
    while (*ptr) {
@@ -114,6 +126,12 @@ void error(const char* msg, const char* info) {
    else Serial.printf("%s\n", msg);
    got_error = true;
    clear_movements(); }
+void error(const char *msg) {
+   error(msg, "");}
+void error(const char* msg, int info) {
+   static char str[20];
+   snprintf(str, sizeof(str), "%d", info);
+   error(msg, str); }
 
 void flush_input(void) {
    //Serial.flush() flushes the *output* channel!
@@ -212,13 +230,17 @@ bool strmatch(const char* a, const char* b) {
       if (*a++ != *b++) return false;
    return *a == 0 && *b == 0; }
 
-// Scan for an axle name; if it's a rotator then movement type must match
+// Scan for an axle name, or board & motor numbers for position on the controller boards
+// If it's a rotator then movement type must match "which" unless it is ANY_MOVEMENT
 // Return the pointer to the motor descriptor, or NULL if not found.
 struct motord_t* scan_axlename(const char** pptr, enum movement_t which, bool showerr) {
    const char* savep = *pptr;
+   int board, motor;
+   bool numbers = scan_int(pptr, &board, 1, 6) && scan_int(pptr, &motor, 1, 16);
    for (struct motord_t* pmd = motor_descriptors; pmd->motor_number != -1; ++pmd) {
-      if (pmd->motor_number != NM && scan_key(pptr, pmd->axle_name)
-            && (which == ANY_MOVEMENT || pmd->motor_type == LIFT || pmd->motor_type == which)) {
+      if (pmd->motor_number != NM  // it has a motor
+        && ((numbers && pmd->board_number == board && pmd->board_position == motor) || scan_key(pptr, pmd->axle_name)) // and matches the numbers or names
+        && (which == ANY_MOVEMENT || pmd->motor_type == LIFT || pmd->motor_type == which)) { // and matches movement type constraint
          return pmd; }
       *pptr = savep; }
    if (showerr) error("bad motor", *pptr);
@@ -238,16 +260,17 @@ bool scan_storename(const char** pptr, int* liftmotor, int* rotatemotor) {
    *rotatemotor = store_rotators[storenum - 1];
    return true; }
 
-void do_homescript(void) {
-   execute_commands("home"); }
-
 void do_pause(const char** pptr) { // complete all movements and then pause
    int msec;
    while (motors_queued)
       if (!do_movements(timeunit_usec)) break;
    if (!scan_int(pptr, &msec, 1, 99999)) {
-      Serial.println("waiting...");
-      if (wait_for_char() == ESC) got_error = true; }
+      const char *start_comment = *pptr; int nchars = 0;
+      while (**pptr && **pptr != ';') { // find the end of the comment
+         ++*pptr; ++nchars; }
+      Serial.printf("waiting...%.*s", nchars, start_comment);
+      if (wait_for_char() == ESC) got_error = true;
+      Serial.println();  }
    else {
       unsigned long start_time = millis();
       flush_input();
@@ -264,9 +287,11 @@ void do_reset(void) {  // reset our internal state, but not the hardware
 void show_state(void) {  //show the internal state of motors not at neutral or on
    for (struct motord_t* pmd = motor_descriptors; pmd->motor_number != -1; ++pmd) {
       if (pmd->motor_number != NM && pmd->assigned) {
-         if (pmd->current_position != 0 || pmd->motor_state == ON)
+         if (pmd->current_position != 0)
             Serial.printf("%s (%s) is at %d and is %s\n",
-                          pmd->axle_name, pmd->axle_descr, pmd->current_position, pmd->motor_state == ON ? "on" : "off"); } } }
+                          pmd->axle_name, pmd->axle_descr, pmd->current_position, pmd->motor_state == ON ? "on" : "off");
+         else if (pmd->motor_state == ON)
+            Serial.printf("%s (%s) is on\n", pmd->axle_name, pmd->axle_descr); } } }
 
 unsigned read_switches(void) { // create a bitmap of all switch values, 15..0
    unsigned switches = 0;
@@ -274,7 +299,7 @@ unsigned read_switches(void) { // create a bitmap of all switch values, 15..0
       switches = (switches << 1) | (read_switch(switchnum) & 1);
    return switches; }
 
-void show_switches(void) {  // routine to check digit wheel index hardware
+void show_switches(void) {  // routine to show microswitch status
    unsigned current_switches = read_switches(), new_switches;
    Serial.println("monitoring switches...");
    while (!Serial.available()) {
@@ -285,49 +310,63 @@ void show_switches(void) {  // routine to check digit wheel index hardware
             unsigned mask = 1;
             for (int switchnum = 0; switchnum < 16; ++switchnum) {
                if ((new_switches & mask) != (current_switches & mask))
-                  Serial.printf(" sw%d=%d", switchnum, new_switches & mask ? 1 : 0);
+                  Serial.printf(new_switches & mask ? " sw%d high" : " sw%d     low", switchnum);
                mask <<= 1; }
             Serial.println();
             current_switches = new_switches; } } }
    Serial.println("done"); }
 
-//***** queue a functional motor movement described by a fct_move_t structure
+static void tighten_locks(void) { // preload certain rotary locks
+   static const char* tighten_locks_cmd = "lock MP2; lock FP2;";
+   if (!locks_tightened) {
+      locks_tightened = true; // do early to prevent recursion when calling queue_movement
+      const char* ptr = tighten_locks_cmd;
+      while (!got_error && *ptr)
+         scan_command(&ptr, 1);
+      do_movements(timeunit_usec); } }
 
-void do_move(struct fct_move_t* move, const char** pptr) { // queue up an elementary motion
+
+//***** queue a functional motor movement described by a fct_move_t structure
+void do_move(struct fct_move_t* move, const char** pptr, bool halfunit) {
    struct motord_t* pmd;
    int start_pct = 0, end_pct = 99;
    pmd = motor_num_to_descr[move->motor_num];
    if (!pmd) {
-      error("undefined motor", NULL);
+      error("undefined motor", move->motor_num);
       return; }
    if (!pmd->assigned) {
-      error("unassigned motor", NULL);
+      error("unassigned motor", pmd->axle_name);
       return; }
    if (scan_key(pptr, "delay")) {  // scan optional timing information
-      start_pct = 50; end_pct = 99; }
+      start_pct = 50; end_pct = 99; } // second half cycle
    else if (scan_key(pptr, "time ")) {
       if (!scan_int(pptr, &start_pct, 0, 99)
             || !scan_int(pptr, &end_pct, 1, 299)) {
          error("bad times", *pptr); return; } }
+   else if (halfunit) {
+      start_pct = 0; end_pct = 49;  } // first half cycle
    else { // use the full time unit for this movement
       start_pct = 0; end_pct = 99; }
+   tighten_locks(); // make sure certain rotary locks are tightened
    if (move->distance_given)
       queue_movement(pmd, pmd->motor_type, move->position, start_pct, end_pct);  // distance to move, not position
    else {
       int desired_position = move->position;
       int distance = desired_position - pmd->current_position;
-      if (distance == 0)
-         Serial.printf("already there: %s\n", pmd->axle_name);
+      if (distance == 0) {
+         if (debug >= 2) Serial.printf("%s is already at %d\n", pmd->axle_name, desired_position); }
       else {
          queue_movement(pmd, pmd->motor_type, distance, start_pct, end_pct);
          pmd->current_position = desired_position; } } }
 
 struct fct_move_t* do_function(  // parse axle name(s) and queue up a move
    struct fct_move_t* move, // an array of fct_move structures ending with one that has no keyword
-   const char** pptr) {
+   const char** pptr,       // pointer to the current scan pointer
+   bool halfunit);    // optional: do in the first half unit?
+struct fct_move_t* do_function(struct fct_move_t* move, const char** pptr, bool halfunit) {
    for (; move->keyword; ++move) {
       if (scan_key(pptr, move->keyword)) {
-         if (move->position != NOMOVE) do_move(move, pptr);
+         if (move->position != NOMOVE) do_move(move, pptr, halfunit);
          return move; } }
    error("unknown axle and keywords", *pptr);
    return NULL; }
@@ -340,32 +379,35 @@ void do_giveoff(struct fct_move_t* move, const char** pptr) {  // give off one d
          else {
             //if (finger->current_position == 0 && debug >= 1)  HOW TO FIND THE FINGER AXIS FOR THIS ROTATOR??
             //   Serial.printf("** warning: finger for %s not engaged\n", finger->axle_name);
-            int degrees = DEGREES_PER_DIGIT;
-            if (scan_int(pptr, &degrees, 1, 2*DEGREES_PER_DIGIT)) ;
+            tighten_locks(); // make sure certain rotary locks are tightened
+            int degrees = move->position; // how many (signed) degrees to move
+            scan_int(pptr, &degrees, 1, 2 * DEGREES_PER_DIGIT);
             bool reverse = scan_key(pptr, "reverse");
-            queue_movement(pmd, ROTATE, reverse ? -DEGREES_PER_DIGIT : DEGREES_PER_DIGIT); }
+            queue_movement(pmd, ROTATE, reverse ? -degrees : degrees); }
          return; } }
    error("unknown axle", *pptr);
    return; }
 
-#if 0 // use do_function instead
-struct fct_move_t* do_lockunlock(  // parse axle name to lock or unlock, and queue up the move
-   struct fct_move_t* move, const char** pptr) {
-   for (; move->keyword1; ++move) {
-      if (scan_key(pptr, move->keyword1)) {
-         do_move(move, pptr);
-         return move; } }
-   error("unknown axle", *pptr);
-   return NULL; }
-#endif
-
-void do_onoff(enum motor_state_t onoff, const char** pptr) { // parse motor name, or none to do all motors
+static void do_onoff(enum motor_state_t onoff, const char** pptr) { // parse motor name, or none to do all motors
    struct motord_t* pmd;
-   if ((pmd = scan_axlename(pptr, ANY_MOVEMENT, false)))
-      power_motor(pmd, onoff); // do one motor
+   if ((pmd = scan_axlename(pptr, ANY_MOVEMENT, false))) {
+      if (check_endcmd(pptr)) power_motor(pmd, onoff, true); } // do one motor
+   else if (check_endcmd(pptr)) {
+      power_motors(onoff); // do all motors
+      if (onoff == OFF) locks_tightened = false; } }
+
+static void do_switchtest(const char** pptr) { // test named switch, set stop_repeat if set
+   struct switchnum_t* psw;
+   for (psw = switch_numbers; psw->switch_name; ++psw)
+      if (scan_key(pptr, psw->switch_name)) break;
+   if (!psw->switch_name) error("bad switch name", *pptr);
    else {
-    bool doall = scan_key(pptr, "all");
-    if (check_endcmd(pptr)) power_motors(onoff, doall); }} //  do all (or *really* all) motors
+      int state = read_switch(psw->switch_number);
+      if (debug >= 2) Serial.printf("switch %d (%s) is %d\n", psw->switch_number, psw->switch_name, state);
+      if (scan_key(pptr, "stoprepeat") && state == 0) stop_repeat = true; } }
+
+static void do_runupcheck(void) {
+   if (read_switch (F2_RUNUP) == 0 ) printf ("***RUNUP\n"); }
 
 //***** the command interpreter
 
@@ -383,16 +425,22 @@ static struct script_t* find_script(const char** pptr) {
 #define MAX_CMDLEN 200  // maximum size of command string after parameter expansion
 
 int substitute_parms(char* dst, const char* src, char parms[MAX_PARMS][MAX_PARMSIZE]) {
-   // copy src to dst, substituting actual parameters for #1, #2, etc., and return the number of parameters substituted
+   // Copy src to dst, substituting actual parameters for #1, #2, etc., and return the number of parameters substituted.
+   // If the parameter number is followed by -x, then "x" must be the first character of the actual parm and is skipped.
+   // Return -1 if error.
    int dstndx = 0;
    int count = 0;
    while (*src) {
       if (*src == '#') { // look for #n
          char parmnum = *++src;
          if (parmnum >= '1' && parmnum <= '9') {
-            ++src; // skip the parm number
-            const char* parm = parms[parmnum - '1']; // actual parameter to substitute
-            if (debug >= 4) Serial.printf("copying actual parm #%d: \"%s\"\n", parmnum - '1' + 1, parm);
+            const char* parm = parms[parmnum - '1']; // ptr to actual parameter to substitute
+            if (*++src == '-') { // skip parm number; check for a matching character?
+               if (toupper(*parm++) != toupper(*++src)) {
+                  error("bad parameter match", src);
+                  return -1; }
+               ++src; }
+            if (debug >= 5) Serial.printf("copying actual parm #%d: \"%s\"\n", parmnum - '1' + 1, parm);
             while (dstndx < MAX_CMDLEN && *parm) // copy it
                dst[dstndx++] = *parm++; }
          ++count; } // count the number of parameters substituted
@@ -422,11 +470,11 @@ bool do_timeunit(void) {
    if (!got_error && motors_queued > 0) {
       ++cyclenum;
       if (script_step && !do_step_wait()) return false;
-      if (debug >= 2) Serial.printf("*** at time unit %d, ", cyclenum);
+      if (debug >= 3) Serial.printf("*** at time unit %d, ", cyclenum);
       do_movements(timeunit_usec); } // execute all primitive movements and movements of all the scripts in this time unit
    return true; }
 
-static bool scan_command(const char** pptr) {
+bool scan_command(const char** pptr, int level) {
    // try to scan a single primitive command and queue the movement it requires
    if (got_error) return false;
    skip_blanks(pptr);
@@ -445,10 +493,10 @@ static bool scan_command(const char** pptr) {
          if (scan_int(pptr, &mils, -1500, +1500))
             queue_movement(pmd, LIFT, mils);
          else error("bad mils", *pptr); } }
-   else if (scan_cmd(pptr, "lock1")) do_function(fct_lock1, pptr);
-   else if (scan_cmd(pptr, "lock")) do_function(fct_lock, pptr);
-   else if (scan_cmd(pptr, "unlock")) do_function(fct_unlock, pptr);
-   //else if (scan_cmd(pptr, "weaklock")) do_function(fct_weaklock, pptr);
+   else if (scan_cmd(pptr, "lock1")) do_function(fct_lock1, pptr, true);
+   else if (scan_cmd(pptr, "lock")) do_function(fct_lock, pptr, true);
+   else if (scan_cmd(pptr, "unlock")) do_function(fct_unlock, pptr, true);
+   //else if (scan_cmd(pptr, "weaklock")) do_function(fct_weaklock, pptr, true);
    else if (scan_cmd(pptr, "mesh")) do_function(fct_mesh, pptr);
    else if (scan_cmd(pptr, "unmesh")) do_function(fct_unmesh, pptr);
    else if (scan_cmd(pptr, "finger")) do_function(fct_finger, pptr);
@@ -460,12 +508,21 @@ static bool scan_command(const char** pptr) {
    else if (scan_cmd(pptr, "carrywarn")) do_function(fct_carrywarn, pptr);
    else if (scan_cmd(pptr, "carry")) do_function(fct_carry, pptr);
    else if (scan_cmd(pptr, "keepers")) do_function(fct_keepers, pptr);
-   //else if (scan_cmd(pptr, "test")) do_function(fct_test, pptr);
-   else if (scan_cmd(pptr, "test")) do_test();
+   else if (scan_cmd(pptr, "ctr")) do_function(fct_ctr, pptr);
+   else if (scan_cmd(pptr, "switchtest")) do_switchtest(pptr);
+   else if (scan_cmd(pptr, "chaintest")) chaintest_proc();
+   else if (scan_cmd(pptr, "step chaintest")) {script_step = true; chaintest_proc(); }
+   else if (scan_cmd(pptr, "runupcheck")) do_runupcheck();
+   else if (scan_cmd(pptr, "specialtest")) do_test();
+   else if (scan_cmd(pptr, "testmotor")) do_testmotor(pptr);
    else if (scan_cmd(pptr, "repeat ")) {
       int repeatcount = 9999;
       scan_int(pptr, &repeatcount, 1, 9999);
-      while (--repeatcount) execute_commands(*pptr); }
+      stop_repeat = false;
+      while (repeatcount-- && !stop_repeat) execute_commands(*pptr);
+      while (**pptr) ++*pptr;  // skip to end so it doesn't execute again
+      if (stop_repeat && debug >= 2) Serial.println("repeat stopped by event");
+      stop_repeat = false; }
    // commands that don't save the command buffer; they call scan_key instead of scan_cmd
    else if (scan_key(pptr, "timeunit ")) {
       int timeunit_msec;
@@ -479,7 +536,6 @@ static bool scan_command(const char** pptr) {
    else if (scan_key(pptr, "debug")) Serial.printf("debug %d\n", debug);
    else if (scan_key(pptr, "on")) do_onoff(ON, pptr);
    else if (scan_key(pptr, "off")) do_onoff(OFF, pptr);
-   else if (scan_key(pptr, "home")) do_homescript();
    else if (scan_key(pptr, "pause")) do_pause(pptr);
    else if (scan_key(pptr, "reset")) do_reset();
    else if (scan_key(pptr, "switches")) show_switches();
@@ -487,28 +543,36 @@ static bool scan_command(const char** pptr) {
    else if (scan_key(pptr, "state")) show_state();
    else if (scan_key(pptr, "calibrate")) do_calibrate(pptr);
    else if (scan_key(pptr, "bell")) Serial.print(BELL);
+   #if !VISUAL_STUDIO
    else if (scan_key(pptr, "restart")) SCB_AIRCR = 0x05FA0004; // Teensy processor reset
+   #endif
    else if (scan_key(pptr, "help")) show_help();
    else if (scan_key(pptr, "?")) show_help();
    else return false;
    scan_key(pptr, ";");
    return true; }
 
-void execute_commands(const char* ptr, int level) { // can be called recursively
+void execute_commandstring(const char* ptr, int level, struct parallel_script_t *pscript) { // can be called recursively
    // execute all the commands in a string simultaneously, including running
    // in parallel any embedded "run" commands that execute multi-step scripts
    struct parallel_script_t parallel_scripts[MAX_SCRIPTS];
    int num_scripts = 0;
    skip_blanks(&ptr);
-   if (debug >= 2 && level > 1) Serial.printf("executing at level %d: \"%s\"\n", level, ptr);
+   //if (debug >= 1 && level == 1 || debug >= 2 && level > 1)
+   if (debug >= 2 && level > 1) {
+      Serial.printf("%s at level %d", got_error ? "skipping" : "executing", level);
+      if (pscript) { // show script invocation statement so we know where the commands are from
+         Serial.printf(" (%s", pscript->script->name);
+         for (int pndx = 0; pscript->parms[pndx][0]; ++pndx) Serial.printf("%s%s", pndx>0 ? " ":"", pscript->parms[pndx]);
+         Serial.print(")"); }
+      Serial.printf(": \"%s\"\n", ptr); }
    // scan a sequence of primitive commands or run/step script-starting commands,
    // all of which execute in parallel
-   while (!got_error && *ptr) {
-      if (!scan_command(&ptr)) { // first try to parse a primitive command
+   while (!got_error && !stop_repeat && *ptr) {
+      if (!scan_command(&ptr, level)) { // first try to parse a primitive command
          if (scan_cmd(&ptr, "step ")) { // if not, try for a script
             if (level == 1) script_step = true; }
-         else {
-            scan_cmd(&ptr, "run ");  // now "run" is optional because any script can be a command
+         else if (scan_cmd(&ptr, "run ")) {  // now "run" is optional because any script can be a command, but turns off step
             if (level == 1) script_step = false; }
          script_t* sp = find_script(&ptr); // add to the list of parallel running scripts
          if (sp) { // found the script
@@ -526,17 +590,24 @@ void execute_commands(const char* ptr, int level) { // can be called recursively
          if (*parallel_scripts[scriptnum].next_command) { // this script is still running
             char command[MAX_CMDLEN]; // do parameter substitution of all #n
             int num_substitutions = substitute_parms(command, *parallel_scripts[scriptnum].next_command, parallel_scripts[scriptnum].parms);
-            if (num_substitutions > 0 && debug >= 3)
+            if (num_substitutions < 0) return;
+            if (num_substitutions > 0 && debug >= 5)
                Serial.printf("substituted %d parameters in script \"%s\" command \"%s\"\n",
                              num_substitutions, parallel_scripts[scriptnum].script->name, *parallel_scripts[scriptnum].next_command);
-            execute_commands(command, level + 1); // scan commands in the expanded script line, which could contain other "run <script>" commands
+            // recursively scan commands in the expanded script line, which could contain other "run <script>" commands
+            execute_commandstring(command, level + 1, &parallel_scripts[scriptnum]); 
             if (!*++parallel_scripts[scriptnum].next_command) --running_scripts; // this script has now ended
          }
       if (running_scripts > 0)
          if (!do_timeunit()) return; } // do movements and continue the scripts
    if (level == 1) do_timeunit(); } // do leftover movements
 
-void execute_commands(const char* ptr) { // execute top-level command
-   execute_commands(ptr, 1); }
+void execute_commands(const char* ptr, ...) { // execute top-level command, perhaps with substitutions
+   va_list args;
+   char cmd[MAX_CMDLEN];
+   va_start(args, ptr);
+   vsnprintf(cmd, sizeof(cmd), ptr, args); // do substitutions of %s and %n
+   execute_commandstring(cmd, 1, NULL);
+   va_end(args); }
 
 //*
